@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:name=".HismaApplication"
         android:allowBackup="true"
@@ -25,6 +27,10 @@
 
         <activity
             android:name=".ui.dashboard.DashboardActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.subscription.SubscriptionExpiredActivity"
             android:exported="false" />
 
         <!-- La MainActivity que se creó automáticamente puede ser eliminada -->

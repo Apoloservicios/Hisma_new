@@ -41,7 +41,8 @@ class LoginFragment : Fragment() {
         }
 
         binding.textRegister.setOnClickListener {
-            viewModel.navigateToRegister()
+            // Cambiado para navegar a la selección de tipo de registro
+            viewModel.navigateToRegisterSelection()
         }
 
         // Observar cambios en el estado
