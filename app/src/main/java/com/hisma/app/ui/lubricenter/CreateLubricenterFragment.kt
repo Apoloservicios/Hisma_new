@@ -10,7 +10,8 @@ import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import com.hisma.app.databinding.FragmentCreateLubricenterBinding
 import dagger.hilt.android.AndroidEntryPoint
-
+import com.google.android.material.textfield.TextInputEditText
+import com.hisma.app.R
 
 @AndroidEntryPoint
 class CreateLubricenterFragment : Fragment() {
@@ -33,12 +34,14 @@ class CreateLubricenterFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         binding.buttonCreate.setOnClickListener {
-            val name = binding.editTextName.text.toString()
+            val fantasyName = binding.editTextName.text.toString()
+            // Usa findViewById como alternativa temporal
+            val cuit = view?.findViewById<TextInputEditText>(R.id.edit_text_cuit)?.text.toString() ?: ""
             val address = binding.editTextAddress.text.toString()
             val phone = binding.editTextPhone.text.toString()
             val email = binding.editTextEmail.text.toString()
 
-            viewModel.createLubricenter(name, address, phone, email)
+            viewModel.createLubricenter(fantasyName, cuit, address, phone, email)
         }
 
         // Observar el estado de creación

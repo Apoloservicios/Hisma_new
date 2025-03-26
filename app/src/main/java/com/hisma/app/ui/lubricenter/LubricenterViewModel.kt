@@ -20,7 +20,13 @@ class LubricenterViewModel @Inject constructor(
     private val _createLubricenterState = MutableLiveData<CreateLubricenterState>()
     val createLubricenterState: LiveData<CreateLubricenterState> = _createLubricenterState
 
-    fun createLubricenter(name: String, address: String, phone: String, email: String) {
+    fun createLubricenter(
+        fantasyName: String,
+        cuit: String,
+        address: String,
+        phone: String,
+        email: String
+    ) {
         viewModelScope.launch {
             _createLubricenterState.value = CreateLubricenterState.Loading
 
@@ -33,10 +39,12 @@ class LubricenterViewModel @Inject constructor(
             }
 
             val lubricenter = Lubricenter(
-                name = name,
+                fantasyName = fantasyName,
+                cuit = cuit,
                 address = address,
                 phone = phone,
                 email = email,
+                responsible = "${currentUser.name} ${currentUser.lastName}",
                 ownerId = currentUser.id
             )
 

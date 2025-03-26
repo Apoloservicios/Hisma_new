@@ -251,6 +251,13 @@ class AuthViewModel @Inject constructor(
             _navigationEvent.emit(AuthNavigationEvent.NavigateToForgotPassword)
         }
     }
+    // Dentro de AuthViewModel.kt, asegúrate de que exista esta función
+    fun navigateToRegisterSelection() {
+        viewModelScope.launch {
+            _navigationEvent.emit(AuthNavigationEvent.NavigateToRegisterSelection)
+        }
+    }
+
 
     // Estados para el login
     sealed class LoginState {

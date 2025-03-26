@@ -8,7 +8,7 @@ class CreateLubricenterUseCase @Inject constructor(
     private val lubricenterRepository: LubricenterRepository
 ) {
     suspend operator fun invoke(lubricenter: Lubricenter): Result<String> {
-        if (lubricenter.name.isBlank()) {
+        if (lubricenter.fantasyName.isBlank()) {
             return Result.failure(Exception("El nombre del lubricentro no puede estar vacío"))
         }
 
