@@ -75,4 +75,17 @@ class LubricenterRepositoryImpl @Inject constructor(
             Result.failure(e)
         }
     }
+    override suspend fun getLubricenterByCuit(cuit: String): Result<Lubricenter?> {
+        return try {
+            val querySnapshot = firestore.collection(FirebaseConstants.LUBRICENTERS_COLLECTION)
+                .whereEqualTo("cuit", cuit)
+                .get()
+                .await()
+
+            val lubricenter = querySnapshot.documents.firstOrNull()?.toObject(Lubricenter::class.java)
+            Result.success(lubricenter)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

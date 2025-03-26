@@ -7,4 +7,5 @@ interface LubricenterRepository {
     suspend fun getLubricentersByOwnerId(ownerId: String): Result<List<Lubricenter>>
     suspend fun createLubricenter(lubricenter: Lubricenter): Result<String>
     suspend fun updateLubricenter(lubricenter: Lubricenter): Result<Unit>
+    suspend fun getLubricenterByCuit(cuit: String): Result<Lubricenter?>
 }

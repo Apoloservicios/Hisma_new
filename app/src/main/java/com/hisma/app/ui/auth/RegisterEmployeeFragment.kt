@@ -18,6 +18,9 @@ class RegisterEmployeeFragment : Fragment() {
 
     private val viewModel: AuthViewModel by activityViewModels()
 
+    // Variable para almacenar el ID del lubricentro verificado
+    private var verifiedLubricenterId: String? = null
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -30,20 +33,66 @@ class RegisterEmployeeFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Configurar botón de registro
+        // Configurar botón de verificación
+        binding.buttonVerifyLubricenter.setOnClickListener {
+            val cuit = binding.editTextLubricenterCuit.text.toString()
+            if (cuit.isNotEmpty()) {
+                viewModel.verifyLubricenter(cuit)
+            } else {
+                Toast.makeText(requireContext(), "Ingrese el CUIT del lubricentro", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // Configurar botón de registro (inicialmente deshabilitado)
+        binding.buttonRegister.isEnabled = false
         binding.buttonRegister.setOnClickListener {
             val name = binding.editTextName.text.toString()
             val lastName = binding.editTextLastName.text.toString()
             val email = binding.editTextEmail.text.toString()
             val password = binding.editTextPassword.text.toString()
-            val lubricenterCuit = binding.editTextLubricenterCuit.text.toString()
 
-            viewModel.registerEmployee(name, lastName, email, password, lubricenterCuit)
+            // Solo permitir registro si el lubricentro ha sido verificado
+            verifiedLubricenterId?.let { lubricenterId ->
+                viewModel.registerEmployee(name, lastName, email, password, lubricenterId)
+            }
         }
 
-        // Configurar texto para ir a login
-        binding.textLogin.setOnClickListener {
-            viewModel.navigateToLogin()
+        // Observar estado de verificación del lubricentro
+        viewModel.verifyLubricenterState.observe(viewLifecycleOwner) { state ->
+            when (state) {
+                is AuthViewModel.VerifyLubricenterState.Loading -> {
+                    binding.progressBar.visibility = View.VISIBLE
+                    binding.buttonVerifyLubricenter.isEnabled = false
+                }
+                is AuthViewModel.VerifyLubricenterState.Success -> {
+                    binding.progressBar.visibility = View.GONE
+                    binding.buttonVerifyLubricenter.isEnabled = true
+
+                    // Mostrar los detalles del lubricentro y habilitar registro
+                    binding.layoutLubricenterDetails.visibility = View.VISIBLE
+                    binding.textLubricenterName.text = "Nombre: ${state.lubricenter.fantasyName}"
+                    binding.textLubricenterAddress.text = "Dirección: ${state.lubricenter.address}"
+                    binding.textLubricenterPhone.text = "Teléfono: ${state.lubricenter.phone}"
+
+                    // Guardar el ID del lubricentro verificado
+                    verifiedLubricenterId = state.lubricenter.id
+
+                    // Habilitar botón de registro
+                    binding.buttonRegister.isEnabled = true
+
+                    Toast.makeText(requireContext(), "Lubricentro verificado correctamente", Toast.LENGTH_SHORT).show()
+                }
+                is AuthViewModel.VerifyLubricenterState.Error -> {
+                    binding.progressBar.visibility = View.GONE
+                    binding.buttonVerifyLubricenter.isEnabled = true
+                    binding.layoutLubricenterDetails.visibility = View.GONE
+                    binding.buttonRegister.isEnabled = false
+                    verifiedLubricenterId = null
+
+                    Toast.makeText(requireContext(), state.message, Toast.LENGTH_LONG).show()
+                }
+                null -> { /* No hacer nada */ }
+            }
         }
 
         // Observar estado de registro
@@ -69,6 +118,11 @@ class RegisterEmployeeFragment : Fragment() {
                 }
                 null -> { /* No hacer nada */ }
             }
+        }
+
+        // Configurar texto para ir a login
+        binding.textLogin.setOnClickListener {
+            viewModel.navigateToLogin()
         }
     }
 

@@ -130,6 +130,50 @@
 
             </com.google.android.material.textfield.TextInputLayout>
 
+            <!-- Después del campo de CUIT -->
+            <Button
+                android:id="@+id/button_verify_lubricenter"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Verificar Lubricentro"
+                android:layout_marginTop="8dp"/>
+
+
+            <LinearLayout
+                android:id="@+id/layout_lubricenter_details"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone"
+                android:layout_marginTop="16dp"
+                android:background="#F0F0F0"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Detalles del Lubricentro:"
+                    android:textStyle="bold"/>
+
+                <TextView
+                    android:id="@+id/text_lubricenter_name"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"/>
+
+                <TextView
+                    android:id="@+id/text_lubricenter_address"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"/>
+
+                <TextView
+                    android:id="@+id/text_lubricenter_phone"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"/>
+            </LinearLayout>
+
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

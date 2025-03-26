@@ -40,6 +40,10 @@ class AuthViewModel @Inject constructor(
     private val _employeeRegisterState = MutableLiveData<EmployeeRegisterState>()
     val employeeRegisterState: LiveData<EmployeeRegisterState> = _employeeRegisterState
 
+    // Estado para verificación de lubricentro (nuevo)
+    private val _verifyLubricenterState = MutableLiveData<VerifyLubricenterState>()
+    val verifyLubricenterState: LiveData<VerifyLubricenterState> = _verifyLubricenterState
+
     // Eventos de navegación
     private val _navigationEvent = MutableSharedFlow<AuthNavigationEvent>()
     val navigationEvent: SharedFlow<AuthNavigationEvent> = _navigationEvent
@@ -56,6 +60,29 @@ class AuthViewModel @Inject constructor(
 
     fun setRegistrationType(type: RegistrationType) {
         _registrationType.value = type
+    }
+
+    // Función para verificar lubricentro por CUIT (nuevo)
+    fun verifyLubricenter(cuit: String) {
+        viewModelScope.launch {
+            _verifyLubricenterState.value = VerifyLubricenterState.Loading
+
+            lubricenterRepository.getLubricenterByCuit(cuit)
+                .onSuccess { lubricenter ->
+                    if (lubricenter != null) {
+                        _verifyLubricenterState.value = VerifyLubricenterState.Success(lubricenter)
+                    } else {
+                        _verifyLubricenterState.value = VerifyLubricenterState.Error(
+                            "No se encontró un lubricentro con el CUIT proporcionado"
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _verifyLubricenterState.value = VerifyLubricenterState.Error(
+                        error.message ?: "Error al verificar el lubricentro"
+                    )
+                }
+        }
     }
 
     // Función de login
@@ -122,20 +149,29 @@ class AuthViewModel @Inject constructor(
 
                     lubricenterRepository.createLubricenter(lubricenter)
                         .onSuccess { lubricenterId ->
-                            // 3. Crear suscripción de prueba por 15 días
-                            subscriptionRepository.createSubscription(
-                                lubricenterId = lubricenterId,
-                                planType = PlanType.BASIC,
-                                durationMonths = 1, // Un mes de prueba
-                                autoRenew = false
-                            ).onSuccess { subscriptionId ->
-                                _lubricenterRegisterState.value = LubricenterRegisterState.Success
-                                _navigationEvent.emit(AuthNavigationEvent.NavigateToDashboard)
-                            }.onFailure { error ->
-                                _lubricenterRegisterState.value = LubricenterRegisterState.Error(
-                                    "Lubricentro creado pero ocurrió un error con la suscripción: ${error.message}"
-                                )
-                            }
+                            // 3. Actualizar usuario con rol y ID de lubricentro
+                            authRepository.updateUserRole(userId, UserRole.LUBRICENTER_ADMIN, lubricenterId)
+                                .onSuccess {
+                                    // 4. Crear suscripción de prueba por 15 días
+                                    subscriptionRepository.createSubscription(
+                                        lubricenterId = lubricenterId,
+                                        planType = PlanType.BASIC,
+                                        durationMonths = 1, // Un mes de prueba
+                                        autoRenew = false
+                                    ).onSuccess { subscriptionId ->
+                                        _lubricenterRegisterState.value = LubricenterRegisterState.Success
+                                        _navigationEvent.emit(AuthNavigationEvent.NavigateToDashboard)
+                                    }.onFailure { error ->
+                                        _lubricenterRegisterState.value = LubricenterRegisterState.Error(
+                                            "Lubricentro creado pero ocurrió un error con la suscripción: ${error.message}"
+                                        )
+                                    }
+                                }
+                                .onFailure { error ->
+                                    _lubricenterRegisterState.value = LubricenterRegisterState.Error(
+                                        "Error al actualizar datos del usuario: ${error.message}"
+                                    )
+                                }
                         }
                         .onFailure { error ->
                             _lubricenterRegisterState.value = LubricenterRegisterState.Error(
@@ -151,15 +187,15 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    // Registro de empleado
+    // Registro de empleado (modificado para usar lubricenterId)
     fun registerEmployee(
         name: String,
         lastName: String,
         email: String,
         password: String,
-        lubricenterCuit: String
+        lubricenterId: String // Ahora recibimos el ID directamente
     ) {
-        if (name.isEmpty() || email.isEmpty() || password.isEmpty() || lubricenterCuit.isEmpty()) {
+        if (name.isEmpty() || email.isEmpty() || password.isEmpty()) {
             _employeeRegisterState.value = EmployeeRegisterState.Error("Todos los campos marcados con * son obligatorios")
             return
         }
@@ -172,20 +208,23 @@ class AuthViewModel @Inject constructor(
         _employeeRegisterState.value = EmployeeRegisterState.Loading
 
         viewModelScope.launch {
-            // 1. Verificar que el lubricentro existe con ese CUIT
-            // Para esto necesitaríamos una función adicional en el LubricenterRepository
-            // Por ahora, supondremos que existe y continuamos con el registro
-
-            // 2. Registrar usuario como EMPLOYEE
+            // Registrar usuario como EMPLOYEE
             val fullName = "$name $lastName"
             authRepository.signUp(email, password, fullName)
                 .onSuccess { userId ->
-                    // 3. Actualizar usuario con datos del lubricentro
-                    // Aquí necesitaríamos un método para actualizar el usuario con su lubricentroId
-                    // Por simplicidad, supondremos que se hizo correctamente
-
-                    _employeeRegisterState.value = EmployeeRegisterState.Success
-                    _navigationEvent.emit(AuthNavigationEvent.NavigateToDashboard)
+                    // Actualizar el usuario con el ID del lubricentro y el rol
+                    authRepository.updateUserRole(
+                        userId,
+                        UserRole.EMPLOYEE,
+                        lubricenterId
+                    ).onSuccess {
+                        _employeeRegisterState.value = EmployeeRegisterState.Success
+                        _navigationEvent.emit(AuthNavigationEvent.NavigateToDashboard)
+                    }.onFailure { error ->
+                        _employeeRegisterState.value = EmployeeRegisterState.Error(
+                            "Error al actualizar datos del usuario: ${error.message}"
+                        )
+                    }
                 }
                 .onFailure { error ->
                     _employeeRegisterState.value = EmployeeRegisterState.Error(
@@ -224,6 +263,12 @@ class AuthViewModel @Inject constructor(
     // Funciones de navegación
     fun navigateToRegister() {
         viewModelScope.launch {
+            _navigationEvent.emit(AuthNavigationEvent.NavigateToRegister)
+        }
+    }
+
+    fun navigateToRegisterSelection() {
+        viewModelScope.launch {
             _navigationEvent.emit(AuthNavigationEvent.NavigateToRegisterSelection)
         }
     }
@@ -251,13 +296,6 @@ class AuthViewModel @Inject constructor(
             _navigationEvent.emit(AuthNavigationEvent.NavigateToForgotPassword)
         }
     }
-    // Dentro de AuthViewModel.kt, asegúrate de que exista esta función
-    fun navigateToRegisterSelection() {
-        viewModelScope.launch {
-            _navigationEvent.emit(AuthNavigationEvent.NavigateToRegisterSelection)
-        }
-    }
-
 
     // Estados para el login
     sealed class LoginState {
@@ -285,5 +323,12 @@ class AuthViewModel @Inject constructor(
         object Loading : EmployeeRegisterState()
         object Success : EmployeeRegisterState()
         data class Error(val message: String) : EmployeeRegisterState()
+    }
+
+    // Estados para la verificación de lubricentro (nuevo)
+    sealed class VerifyLubricenterState {
+        object Loading : VerifyLubricenterState()
+        data class Success(val lubricenter: Lubricenter) : VerifyLubricenterState()
+        data class Error(val message: String) : VerifyLubricenterState()
     }
 }

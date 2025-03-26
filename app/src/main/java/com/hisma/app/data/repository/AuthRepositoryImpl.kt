@@ -68,4 +68,22 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun signOut() {
         auth.signOut()
     }
+
+    override suspend fun updateUserRole(userId: String, role: UserRole, lubricenterId: String): Result<Unit> {
+        return try {
+            firestore.collection(FirebaseConstants.USERS_COLLECTION)
+                .document(userId)
+                .update(
+                    mapOf(
+                        "role" to role,
+                        "lubricenterId" to lubricenterId
+                    )
+                )
+                .await()
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
