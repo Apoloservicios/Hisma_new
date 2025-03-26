@@ -34,13 +34,39 @@ import com.hisma.app.ui.auth.AuthActivity
                 binding.textLubricenterEmail.text = lubricenter.email
             }
 
-            // Configurar botón para registrar cambio de aceite
             binding.buttonRegisterOilChange.setOnClickListener {
-                // Para implementación futura
-                android.widget.Toast.makeText(
+                Toast.makeText(
                     this,
                     "Funcionalidad de registro de cambio de aceite será implementada próximamente",
-                    android.widget.Toast.LENGTH_SHORT
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+
+// Si existen estos botones en tu layout, descomenta estas líneas
+            /*
+            binding.buttonViewCustomers.setOnClickListener {
+                Toast.makeText(
+                    this,
+                    "Funcionalidad de clientes será implementada próximamente",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+
+            binding.buttonViewVehicles.setOnClickListener {
+                Toast.makeText(
+                    this,
+                    "Funcionalidad de vehículos será implementada próximamente",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            */
+
+// Agregar botón flotante para crear lubricentro
+            binding.fabAddLubricenter.setOnClickListener {
+                Toast.makeText(
+                    this,
+                    "La función para crear lubricentros será implementada próximamente",
+                    Toast.LENGTH_SHORT
                 ).show()
             }
         }

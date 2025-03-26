@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "92400151009",
+    "project_id": "hismanew",
+    "storage_bucket": "hismanew.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:92400151009:android:95228ae7aac5936a7a4aa0",
+        "android_client_info": {
+          "package_name": "com.hisma.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDpJ1qlPC1l5yzgN5QM4-gjDPn5f2IWIpI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

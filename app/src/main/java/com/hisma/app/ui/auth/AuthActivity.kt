@@ -1,72 +1,72 @@
+// app/src/main/java/com/hisma/app/ui/auth/AuthActivity.kt
 package com.hisma.app.ui.auth
 
 import android.content.Intent
 import android.os.Bundle
-import android.view.View
-import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.hisma.app.databinding.ActivityAuthBinding
 import com.hisma.app.ui.dashboard.DashboardActivity
 import dagger.hilt.android.AndroidEntryPoint
-
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
-    class AuthActivity : AppCompatActivity() {
+class AuthActivity : AppCompatActivity() {
 
-        private lateinit var binding: ActivityAuthBinding
-        private val viewModel: AuthViewModel by viewModels()
+    private lateinit var binding: ActivityAuthBinding
+    private val viewModel: AuthViewModel by viewModels()
 
-        override fun onCreate(savedInstanceState: Bundle?) {
-            super.onCreate(savedInstanceState)
-            binding = ActivityAuthBinding.inflate(layoutInflater)
-            setContentView(binding.root)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = ActivityAuthBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-            // Configuración básica
-            title = "Iniciar Sesión"
-
-            // Observar cambios en el estado del login
-            viewModel.loginState.observe(this) { state ->
-                when (state) {
-                    is AuthViewModel.LoginState.Loading -> {
-                        // Mostrar progreso
-                        binding.progressBar.visibility = View.VISIBLE
-                        binding.buttonLogin.isEnabled = false
-                    }
-                    is AuthViewModel.LoginState.Success -> {
-                        // Ocultar progreso y navegar al dashboard
-                        binding.progressBar.visibility = View.GONE
-                        binding.buttonLogin.isEnabled = true
-                        navigateToDashboard()
-                    }
-                    is AuthViewModel.LoginState.Error -> {
-                        // Mostrar error
-                        binding.progressBar.visibility = View.GONE
-                        binding.buttonLogin.isEnabled = true
-                        Toast.makeText(this, state.message, Toast.LENGTH_SHORT).show()
-                    }
+        // Observar eventos de navegación
+        lifecycleScope.launch {
+            viewModel.navigationEvent.collectLatest { event ->
+                when (event) {
+                    is AuthNavigationEvent.NavigateToDashboard -> navigateToDashboard()
+                    is AuthNavigationEvent.NavigateToRegister -> navigateToRegister()
+                    is AuthNavigationEvent.NavigateToLogin -> navigateToLogin()
+                    is AuthNavigationEvent.NavigateToForgotPassword -> navigateToForgotPassword()
                 }
-            }
-
-            // Configurar botón de inicio de sesión
-            binding.buttonLogin.setOnClickListener {
-                val email = binding.editTextEmail.text.toString()
-                val password = binding.editTextPassword.text.toString()
-                viewModel.login(email, password)
-            }
-
-            // Configurar texto de registro
-            binding.textRegister.setOnClickListener {
-                Toast.makeText(this, "Funcionalidad de registro será implementada próximamente", Toast.LENGTH_SHORT).show()
             }
         }
 
-        private fun navigateToDashboard() {
-            val intent = Intent(this, DashboardActivity::class.java)
-            startActivity(intent)
-            finish()
+        // Mostrar fragmento de login por defecto
+        if (savedInstanceState == null) {
+            supportFragmentManager.beginTransaction()
+                .replace(binding.authContainer.id, LoginFragment())
+                .commit()
         }
     }
 
+    private fun navigateToDashboard() {
+        val intent = Intent(this, DashboardActivity::class.java)
+        startActivity(intent)
+        finish()
+    }
 
+    private fun navigateToRegister() {
+        supportFragmentManager.beginTransaction()
+            .replace(binding.authContainer.id, RegisterFragment())
+            .addToBackStack(null)
+            .commit()
+    }
 
+    private fun navigateToLogin() {
+        supportFragmentManager.popBackStack()
+    }
+
+    private fun navigateToForgotPassword() {
+        // Para implementar en el futuro
+        // Por ahora, muestra un mensaje indicando que esta funcionalidad está en desarrollo
+        android.widget.Toast.makeText(
+            this,
+            "Recuperación de contraseña será implementada próximamente",
+            android.widget.Toast.LENGTH_SHORT
+        ).show()
+    }
+}

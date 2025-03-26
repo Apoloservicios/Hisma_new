@@ -1,4 +1,4 @@
-package com.hisma.app.data.repository
+package com.hisma.app.domain.repository
 
 import com.hisma.app.domain.model.Lubricenter
 

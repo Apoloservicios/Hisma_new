@@ -5,7 +5,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import com.hisma.app.domain.model.Lubricenter
 import com.hisma.app.domain.repository.AuthRepository
-import com.hisma.app.data.repository.LubricenterRepository
+import com.hisma.app.domain.repository.LubricenterRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
