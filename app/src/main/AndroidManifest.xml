@@ -33,7 +33,17 @@
             android:name=".ui.subscription.SubscriptionExpiredActivity"
             android:exported="false" />
 
-        <!-- La MainActivity que se creó automáticamente puede ser eliminada -->
+        <activity
+            android:name=".ui.subscription.SubscriptionDetailsActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.profile.ProfileActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.records.RecordsListActivity"
+            android:exported="false" />
 
     </application>
 

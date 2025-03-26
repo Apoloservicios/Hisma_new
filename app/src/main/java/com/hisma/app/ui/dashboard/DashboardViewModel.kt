@@ -5,9 +5,11 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hisma.app.domain.model.Lubricenter
+import com.hisma.app.domain.model.Subscription
 import com.hisma.app.domain.model.User
 import com.hisma.app.domain.repository.AuthRepository
 import com.hisma.app.domain.repository.LubricenterRepository
+import com.hisma.app.domain.repository.SubscriptionRepository
 import com.hisma.app.domain.usecase.subscription.CheckSubscriptionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -19,11 +21,15 @@ import javax.inject.Inject
 class DashboardViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val lubricenterRepository: LubricenterRepository,
+    private val subscriptionRepository: SubscriptionRepository,
     private val checkSubscriptionUseCase: CheckSubscriptionUseCase
 ) : ViewModel() {
 
     private val _lubricenter = MutableLiveData<Lubricenter>()
     val lubricenter: LiveData<Lubricenter> = _lubricenter
+
+    private val _subscription = MutableLiveData<Subscription?>()
+    val subscription: LiveData<Subscription?> = _subscription
 
     private val _currentUser = MutableLiveData<User?>()
     val currentUser: LiveData<User?> = _currentUser
@@ -60,6 +66,7 @@ class DashboardViewModel @Inject constructor(
             lubricenterRepository.getLubricenterById(lubricenterId)
                 .onSuccess { lubricenter ->
                     _lubricenter.value = lubricenter
+                    loadSubscription(lubricenter.id)
                     checkSubscription(lubricenter.id)
                 }
                 .onFailure {
@@ -74,8 +81,21 @@ class DashboardViewModel @Inject constructor(
                 .onSuccess { lubricenters ->
                     if (lubricenters.isNotEmpty()) {
                         _lubricenter.value = lubricenters.first()
+                        loadSubscription(lubricenters.first().id)
                         checkSubscription(lubricenters.first().id)
                     }
+                }
+                .onFailure {
+                    // Manejar error
+                }
+        }
+    }
+
+    private fun loadSubscription(lubricenterId: String) {
+        viewModelScope.launch {
+            subscriptionRepository.getSubscriptionByLubricenterId(lubricenterId)
+                .onSuccess { subscription ->
+                    _subscription.value = subscription
                 }
                 .onFailure {
                     // Manejar error
