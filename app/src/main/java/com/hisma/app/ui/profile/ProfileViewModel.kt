@@ -1,27 +1,32 @@
 package com.hisma.app.ui.profile
 
 import android.content.ContentResolver
+import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.firebase.storage.FirebaseStorage
+import com.cloudinary.android.MediaManager
+import com.cloudinary.android.callback.ErrorInfo
+import com.cloudinary.android.callback.UploadCallback
 import com.hisma.app.domain.model.Lubricenter
 import com.hisma.app.domain.repository.AuthRepository
 import com.hisma.app.domain.repository.LubricenterRepository
+import com.hisma.app.util.CloudinaryConfig
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
-import java.io.File
+import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.UUID
 import javax.inject.Inject
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val authRepository: AuthRepository,
-    private val lubricenterRepository: LubricenterRepository,
-    private val storage: FirebaseStorage
+    private val lubricenterRepository: LubricenterRepository
 ) : ViewModel() {
 
     private val _lubricenter = MutableLiveData<Lubricenter?>()
@@ -29,6 +34,8 @@ class ProfileViewModel @Inject constructor(
 
     private val _saveState = MutableLiveData<SaveState?>()
     val saveState: LiveData<SaveState?> = _saveState
+
+    private var isCloudinaryInitialized = false
 
     init {
         loadLubricenter()
@@ -64,13 +71,28 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
+    // Inicializar Cloudinary
+    fun initializeCloudinary(context: Context) {
+        if (isCloudinaryInitialized) return
+
+        try {
+            val config = CloudinaryConfig.getConfig()
+            MediaManager.init(context, config)
+            isCloudinaryInitialized = true
+        } catch (e: Exception) {
+            // MediaManager ya inicializado o error
+            isCloudinaryInitialized = true
+        }
+    }
+
     fun updateLubricenter(
         name: String,
         address: String,
         phone: String,
         email: String,
         responsible: String,
-        logoUri: Uri?
+        logoUri: Uri?,
+        context: Context
     ) {
         viewModelScope.launch {
             _saveState.value = SaveState.Loading
@@ -80,10 +102,16 @@ class ProfileViewModel @Inject constructor(
                 val currentLubricenter = _lubricenter.value
                     ?: return@launch _saveState.postValue(SaveState.Error("No se encontró el lubricentro"))
 
-                // Si hay una imagen nueva, subirla al Storage primero
+                // Si hay una imagen nueva, subirla a Cloudinary
                 var logoUrl = currentLubricenter.logoUrl
                 if (logoUri != null) {
-                    logoUrl = uploadImage(logoUri)
+                    try {
+                        initializeCloudinary(context)
+                        logoUrl = uploadImageToCloudinary(logoUri, context)
+                    } catch (e: Exception) {
+                        _saveState.value = SaveState.Error("Error al subir imagen: ${e.message}")
+                        return@launch
+                    }
                 }
 
                 // Actualizar el objeto lubricentro
@@ -112,19 +140,46 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    private suspend fun uploadImage(imageUri: Uri): String {
-        try {
-            // Crear referencia única para la imagen
-            val storageRef = storage.reference
-            val imageRef = storageRef.child("lubricentro_logos/${UUID.randomUUID()}.jpg")
+    private suspend fun uploadImageToCloudinary(imageUri: Uri, context: Context): String = suspendCancellableCoroutine { continuation ->
+        // Generar un nombre único para la imagen
+        val fileName = "hisma_logo_${UUID.randomUUID()}"
 
-            // Subir imagen
-            val uploadTask = imageRef.putFile(imageUri).await()
+        val requestId = MediaManager.get().upload(imageUri)
+            .option("public_id", fileName)
+            .option("folder", CloudinaryConfig.FOLDER)
+            .unsigned(CloudinaryConfig.UPLOAD_PRESET)
+            .callback(object : UploadCallback {
+                override fun onStart(requestId: String) {
+                    // Inicio de la subida - No es necesario hacer nada aquí
+                    // Ya tenemos un indicador de carga general en la UI
+                }
 
-            // Obtener URL de descarga
-            return imageRef.downloadUrl.await().toString()
-        } catch (e: Exception) {
-            throw Exception("Error al subir imagen: ${e.message}")
+                override fun onProgress(requestId: String, bytes: Long, totalBytes: Long) {
+                    // En una implementación más avanzada, podríamos mostrar un progreso específico
+                    // Por ahora, usamos el indicador general
+                }
+
+                override fun onSuccess(requestId: String, resultData: Map<*, *>) {
+                    // Éxito - obtener la URL
+                    val secureUrl = resultData["secure_url"] as String
+                    continuation.resume(secureUrl)
+                }
+
+                override fun onError(requestId: String, error: ErrorInfo) {
+                    // Error
+                    val errorMessage = "Error al subir imagen: ${error.description}. " +
+                            "Verifique su conexión a internet y vuelva a intentarlo."
+                    continuation.resumeWithException(Exception(errorMessage))
+                }
+
+                override fun onReschedule(requestId: String, error: ErrorInfo) {
+                    // Reprogramado
+                }
+            })
+            .dispatch()
+
+        continuation.invokeOnCancellation {
+            MediaManager.get().cancelRequest(requestId)
         }
     }
 

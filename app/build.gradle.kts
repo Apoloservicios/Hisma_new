@@ -78,4 +78,7 @@ dependencies {
 
     // Material Components
     implementation("com.google.android.material:material:1.10.0")
+
+    implementation("com.cloudinary:cloudinary-android:2.2.0")
+    implementation("com.cloudinary:cloudinary-core:1.33.0")
 }

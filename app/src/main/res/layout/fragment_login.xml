@@ -7,19 +7,33 @@
     android:padding="16dp"
     tools:context=".ui.auth.LoginFragment">
 
+    <!-- Logo de Hisma -->
+    <ImageView
+        android:id="@+id/image_logo"
+        android:layout_width="215dp"
+        android:layout_height="198dp"
+        android:layout_marginTop="25dp"
+        android:contentDescription="Logo de Hisma"
+        android:src="@drawable/logo_hisma"
+        app:layout_constraintBottom_toTopOf="@+id/text_title"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0"
+        app:layout_constraintVertical_chainStyle="packed" />
+
     <TextView
         android:id="@+id/text_title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
         android:text="Iniciar Sesión"
-        android:textSize="24sp"
+        android:textSize="20sp"
         android:textStyle="bold"
+        app:layout_constraintBottom_toTopOf="@+id/layout_email"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toTopOf="@+id/layout_email"
-        app:layout_constraintVertical_chainStyle="packed"
-        app:layout_constraintVertical_bias="0.2" />
+        app:layout_constraintTop_toBottomOf="@+id/image_logo" />
 
     <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/layout_email"

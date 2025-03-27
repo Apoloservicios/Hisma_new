@@ -38,6 +38,9 @@ class ProfileActivity : AppCompatActivity() {
         binding = ActivityProfileBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Inicializar Cloudinary
+        viewModel.initializeCloudinary(this)
+
         // Configurar toolbar
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
@@ -111,8 +114,30 @@ class ProfileActivity : AppCompatActivity() {
     }
 
     private fun openImagePicker() {
-        val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
-        getContent.launch(intent)
+        // Verificar si se necesita permisos para SDK > 32 (Android 13+)
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            requestPermissionLauncher.launch(android.Manifest.permission.READ_MEDIA_IMAGES)
+        } else {
+            // Para versiones anteriores
+            requestPermissionLauncher.launch(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
+    }
+
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            // Permiso concedido, abrir selector de imágenes
+            val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+            getContent.launch(intent)
+        } else {
+            // Permiso denegado
+            Toast.makeText(
+                this,
+                "Se necesita permiso para acceder a la galería",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
     }
 
     private fun loadImage(uri: Uri) {
@@ -136,7 +161,8 @@ class ProfileActivity : AppCompatActivity() {
             phone,
             email,
             responsible,
-            selectedImageUri
+            selectedImageUri,
+            this
         )
     }
 
