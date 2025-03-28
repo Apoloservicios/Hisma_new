@@ -10,8 +10,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.hisma.app.R
 import com.hisma.app.databinding.ActivityDashboardBinding
-import com.hisma.app.domain.model.SubscriptionStatus
 import com.hisma.app.ui.auth.AuthActivity
+import com.hisma.app.ui.oilchange.RegisterOilChangeActivity
 import com.hisma.app.ui.profile.ProfileActivity
 import com.hisma.app.ui.records.RecordsListActivity
 import com.hisma.app.ui.subscription.SubscriptionDetailsActivity
@@ -19,7 +19,7 @@ import com.hisma.app.ui.subscription.SubscriptionExpiredActivity
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
+import com.hisma.app.domain.usecase.subscription.CheckSubscriptionUseCase
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -54,20 +54,12 @@ class DashboardActivity : AppCompatActivity() {
     private fun setupButtonListeners() {
         // Botón para registrar cambio de aceite
         binding.buttonRegisterOilChange.setOnClickListener {
-            Toast.makeText(
-                this,
-                "Funcionalidad de registro de cambio de aceite será implementada próximamente",
-                Toast.LENGTH_SHORT
-            ).show()
+            navigateToRegisterOilChange()
         }
 
         // Botón del FAB para registrar cambio rápidamente
         binding.fabAddOilChange.setOnClickListener {
-            Toast.makeText(
-                this,
-                "Registro rápido de cambio de aceite",
-                Toast.LENGTH_SHORT
-            ).show()
+            navigateToRegisterOilChange()
         }
 
         // Botón para ver detalles de suscripción
@@ -78,6 +70,23 @@ class DashboardActivity : AppCompatActivity() {
         // Botón para ver recorridos
         binding.buttonViewRecords.setOnClickListener {
             startActivity(Intent(this, RecordsListActivity::class.java))
+        }
+    }
+
+    private fun navigateToRegisterOilChange() {
+        // Verificar que la suscripción esté activa antes de permitir registrar
+        viewModel.checkSubscription(viewModel.lubricenter.value?.id ?: "")
+
+        // Si no hay problemas con la suscripción, navegar a la pantalla de registro
+        if (viewModel.subscriptionState.value is CheckSubscriptionUseCase.SubscriptionState.Valid) {
+            startActivity(Intent(this, RegisterOilChangeActivity::class.java))
+        } else {
+            // Si hay algún problema con la suscripción, mostrar un mensaje
+            Toast.makeText(
+                this,
+                "Verifique su suscripción antes de registrar cambios de aceite",
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 

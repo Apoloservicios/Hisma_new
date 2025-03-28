@@ -81,4 +81,11 @@ dependencies {
 
     implementation("com.cloudinary:cloudinary-android:2.2.0")
     implementation("com.cloudinary:cloudinary-core:1.33.0")
+
+    // PDF Generation - iText
+    implementation("com.itextpdf:itext7-core:7.2.5")
+
+
+    // FileProvider
+    implementation("androidx.core:core:1.12.0")
 }

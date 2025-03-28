@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+    <!-- Fondo con gradiente dorado -->
+    <rect width="200" height="200" fill="#F2E879" />
+
+    <!-- Gota de aceite -->
+    <path d="M100 30 C 120 60, 150 100, 150 130 C 150 165, 125 180, 100 180 C 75 180, 50 165, 50 130 C 50 100, 80 60, 100 30 Z"
+        fill="#0056A4" stroke="#000000" stroke-width="3" />
+
+    <!-- Detalles de la gota -->
+    <path d="M100 50 C 110 70, 130 100, 130 125 C 130 150, 115 160, 100 160 C 85 160, 70 150, 70 125 C 70 100, 90 70, 100 50 Z"
+        fill="#0068C9" />
+
+    <!-- Brillo de la gota -->
+    <path d="M85 70 C 90 80, 95 90, 95 100 C 95 110, 90 115, 85 115 C 80 115, 75 110, 75 100 C 75 90, 80 80, 85 70 Z"
+        fill="#FFFFFF" opacity="0.7" />
+
+    <!-- Texto "Lubricentro" -->
+    <text x="100" y="200" font-family="Arial Black, sans-serif" font-size="18" text-anchor="middle" fill="#0056A4">LUBRICENTRO</text>
+
+    <!-- Texto "HISMA" -->
+    <text x="100" y="220" font-family="Arial, sans-serif" font-size="14" text-anchor="middle" fill="#0056A4">HISMA</text>
+</svg>
