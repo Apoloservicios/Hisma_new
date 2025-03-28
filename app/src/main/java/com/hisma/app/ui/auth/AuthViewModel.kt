@@ -3,110 +3,73 @@ package com.hisma.app.ui.auth
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.hisma.app.domain.model.Lubricenter
 import com.hisma.app.domain.model.User
 import com.hisma.app.domain.model.UserRole
-import com.hisma.app.domain.repository.AuthRepository
-import com.hisma.app.domain.repository.LubricenterRepository
-import com.hisma.app.domain.repository.SubscriptionRepository
-import com.hisma.app.domain.model.PlanType
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class AuthViewModel @Inject constructor(
-    private val authRepository: AuthRepository,
-    private val lubricenterRepository: LubricenterRepository,
-    private val subscriptionRepository: SubscriptionRepository
-) : ViewModel() {
+class AuthViewModel @Inject constructor() : ViewModel() {
 
-    // Estados para login
-    private val _loginState = MutableLiveData<LoginState>()
-    val loginState: LiveData<LoginState> = _loginState
+    private val auth = FirebaseAuth.getInstance()
+    private val db = FirebaseFirestore.getInstance()
 
-    // Estados para registro
+    private val _authState = MutableLiveData<AuthState>()
+    val authState: LiveData<AuthState> = _authState
+
     private val _registerState = MutableLiveData<RegisterState>()
     val registerState: LiveData<RegisterState> = _registerState
 
-    // Estados para registro de lubricentro
     private val _lubricenterRegisterState = MutableLiveData<LubricenterRegisterState>()
     val lubricenterRegisterState: LiveData<LubricenterRegisterState> = _lubricenterRegisterState
 
-    // Estados para registro de empleado
     private val _employeeRegisterState = MutableLiveData<EmployeeRegisterState>()
     val employeeRegisterState: LiveData<EmployeeRegisterState> = _employeeRegisterState
 
-    // Estado para verificación de lubricentro (nuevo)
     private val _verifyLubricenterState = MutableLiveData<VerifyLubricenterState>()
     val verifyLubricenterState: LiveData<VerifyLubricenterState> = _verifyLubricenterState
 
-    // Eventos de navegación
-    private val _navigationEvent = MutableSharedFlow<AuthNavigationEvent>()
-    val navigationEvent: SharedFlow<AuthNavigationEvent> = _navigationEvent
+    private val _navigationEvent = MutableLiveData<NavigationEvent>()
+    val navigationEvent: LiveData<NavigationEvent> = _navigationEvent
 
-    // Tipo de registro seleccionado
-    private val _registrationType = MutableLiveData<RegistrationType>()
-    val registrationType: LiveData<RegistrationType> = _registrationType
+    private var registrationType: RegistrationType = RegistrationType.LUBRICENTER
 
-    // Tipo de registro
-    enum class RegistrationType {
-        LUBRICENTER,
-        EMPLOYEE
-    }
-
-    fun setRegistrationType(type: RegistrationType) {
-        _registrationType.value = type
-    }
-
-    // Función para verificar lubricentro por CUIT (nuevo)
-    fun verifyLubricenter(cuit: String) {
-        viewModelScope.launch {
-            _verifyLubricenterState.value = VerifyLubricenterState.Loading
-
-            lubricenterRepository.getLubricenterByCuit(cuit)
-                .onSuccess { lubricenter ->
-                    if (lubricenter != null) {
-                        _verifyLubricenterState.value = VerifyLubricenterState.Success(lubricenter)
-                    } else {
-                        _verifyLubricenterState.value = VerifyLubricenterState.Error(
-                            "No se encontró un lubricentro con el CUIT proporcionado"
-                        )
-                    }
-                }
-                .onFailure { error ->
-                    _verifyLubricenterState.value = VerifyLubricenterState.Error(
-                        error.message ?: "Error al verificar el lubricentro"
-                    )
-                }
+    init {
+        // Verificar si el usuario ya está autenticado
+        auth.currentUser?.let {
+            _authState.value = AuthState.Authenticated(it.uid)
+        } ?: run {
+            _authState.value = AuthState.Unauthenticated
         }
     }
 
-    // Función de login
     fun login(email: String, password: String) {
-        if (email.isEmpty() || password.isEmpty()) {
-            _loginState.value = LoginState.Error("Todos los campos son obligatorios")
-            return
-        }
+        _authState.value = AuthState.Loading
 
-        _loginState.value = LoginState.Loading
-
-        viewModelScope.launch {
-            authRepository.signIn(email, password)
-                .onSuccess {
-                    _loginState.value = LoginState.Success
-                    _navigationEvent.emit(AuthNavigationEvent.NavigateToDashboard)
-                }
-                .onFailure {
-                    _loginState.value = LoginState.Error(it.message ?: "Error desconocido")
-                }
-        }
+        auth.signInWithEmailAndPassword(email, password)
+            .addOnSuccessListener { result ->
+                _authState.value = AuthState.Authenticated(result.user?.uid ?: "")
+            }
+            .addOnFailureListener { exception ->
+                _authState.value = AuthState.Error(exception.message ?: "Error de autenticación")
+            }
     }
 
-    // Registro de lubricentro
+    fun register(email: String, password: String) {
+        _registerState.value = RegisterState.Loading
+
+        auth.createUserWithEmailAndPassword(email, password)
+            .addOnSuccessListener { result ->
+                _registerState.value = RegisterState.Success(result.user?.uid ?: "")
+            }
+            .addOnFailureListener { exception ->
+                _registerState.value = RegisterState.Error(exception.message ?: "Error de registro")
+            }
+    }
+
     fun registerLubricenter(
         ownerName: String,
         ownerLastName: String,
@@ -117,218 +80,207 @@ class AuthViewModel @Inject constructor(
         address: String,
         phone: String
     ) {
-        if (ownerName.isEmpty() || email.isEmpty() || password.isEmpty() ||
-            lubricenterName.isEmpty() || cuit.isEmpty() || address.isEmpty()) {
-            _lubricenterRegisterState.value = LubricenterRegisterState.Error("Todos los campos marcados con * son obligatorios")
-            return
-        }
-
-        if (password.length < 6) {
-            _lubricenterRegisterState.value = LubricenterRegisterState.Error("La contraseña debe tener al menos 6 caracteres")
-            return
-        }
-
         _lubricenterRegisterState.value = LubricenterRegisterState.Loading
 
-        viewModelScope.launch {
-            // 1. Registrar usuario como LUBRICENTER_ADMIN
-            val fullName = "$ownerName $ownerLastName"
-            authRepository.signUp(email, password, fullName)
-                .onSuccess { userId ->
-                    // 2. Crear el lubricentro asociado al usuario
-                    val lubricenter = Lubricenter(
-                        fantasyName = lubricenterName,
-                        cuit = cuit,
-                        address = address,
-                        phone = phone,
-                        email = email,
-                        responsible = fullName,
-                        ownerId = userId,
-                        ticketPrefix = lubricenterName.take(2).uppercase()
-                    )
+        // Primero registrar el usuario en Authentication
+        auth.createUserWithEmailAndPassword(email, password)
+            .addOnSuccessListener { authResult ->
+                val userId = authResult.user?.uid ?: ""
 
-                    lubricenterRepository.createLubricenter(lubricenter)
-                        .onSuccess { lubricenterId ->
-                            // 3. Actualizar usuario con rol y ID de lubricentro
-                            authRepository.updateUserRole(userId, UserRole.LUBRICENTER_ADMIN, lubricenterId)
-                                .onSuccess {
-                                    // 4. Crear suscripción de prueba por 15 días
-                                    subscriptionRepository.createSubscription(
-                                        lubricenterId = lubricenterId,
-                                        planType = PlanType.BASIC,
-                                        durationMonths = 1, // Un mes de prueba
-                                        autoRenew = false
-                                    ).onSuccess { subscriptionId ->
-                                        _lubricenterRegisterState.value = LubricenterRegisterState.Success
-                                        _navigationEvent.emit(AuthNavigationEvent.NavigateToDashboard)
-                                    }.onFailure { error ->
-                                        _lubricenterRegisterState.value = LubricenterRegisterState.Error(
-                                            "Lubricentro creado pero ocurrió un error con la suscripción: ${error.message}"
-                                        )
-                                    }
-                                }
-                                .onFailure { error ->
-                                    _lubricenterRegisterState.value = LubricenterRegisterState.Error(
-                                        "Error al actualizar datos del usuario: ${error.message}"
-                                    )
-                                }
-                        }
-                        .onFailure { error ->
-                            _lubricenterRegisterState.value = LubricenterRegisterState.Error(
-                                "Error al crear lubricentro: ${error.message}"
-                            )
-                        }
-                }
-                .onFailure { error ->
-                    _lubricenterRegisterState.value = LubricenterRegisterState.Error(
-                        "Error en el registro: ${error.message}"
-                    )
-                }
-        }
+                // Crear el objeto Lubricenter
+                val lubricenter = Lubricenter(
+                    id = "",
+                    fantasyName = lubricenterName,
+                    cuit = cuit,
+                    address = address,
+                    responsible = ownerName + " " + ownerLastName,
+                    email = email,
+                    phone = phone,
+                    ownerId = userId,
+                    active = true,
+                    createdAt = System.currentTimeMillis()
+                )
+
+                // Guardar en Firestore
+                db.collection("lubricenters")
+                    .add(lubricenter)
+                    .addOnSuccessListener { documentReference ->
+                        // Crear el objeto User usando tu modelo existente
+                        val user = User(
+                            id = userId,
+                            name = ownerName,
+                            lastName = ownerLastName,
+                            email = email,
+                            role = UserRole.LUBRICENTER_ADMIN,
+                            lubricenterId = documentReference.id,
+                            active = true,
+                            lastLogin = System.currentTimeMillis(),
+                            createdAt = System.currentTimeMillis()
+                        )
+
+                        // Guardar el usuario en Firestore
+                        db.collection("users")
+                            .document(userId)
+                            .set(user)
+                            .addOnSuccessListener {
+                                _lubricenterRegisterState.value = LubricenterRegisterState.Success
+                            }
+                            .addOnFailureListener { exception ->
+                                _lubricenterRegisterState.value =
+                                    LubricenterRegisterState.Error(exception.message ?: "Error al guardar el usuario")
+                            }
+                    }
+                    .addOnFailureListener { exception ->
+                        _lubricenterRegisterState.value =
+                            LubricenterRegisterState.Error(exception.message ?: "Error al guardar el lubricentro")
+                    }
+            }
+            .addOnFailureListener { exception ->
+                _lubricenterRegisterState.value =
+                    LubricenterRegisterState.Error(exception.message ?: "Error de registro")
+            }
     }
 
-    // Registro de empleado (modificado para usar lubricenterId)
+    fun verifyLubricenter(cuit: String) {
+        _verifyLubricenterState.value = VerifyLubricenterState.Loading
+
+        db.collection("lubricenters")
+            .whereEqualTo("cuit", cuit)
+            .limit(1)
+            .get()
+            .addOnSuccessListener { documents ->
+                if (documents.isEmpty) {
+                    _verifyLubricenterState.value = VerifyLubricenterState.NotFound
+                } else {
+                    val document = documents.documents[0]
+                    val lubricenter = document.toObject(Lubricenter::class.java)
+                    if (lubricenter != null) {
+                        // Asignar el ID del documento
+                        _verifyLubricenterState.value = VerifyLubricenterState.Found(
+                            lubricenter.copy(id = document.id)
+                        )
+                    } else {
+                        _verifyLubricenterState.value = VerifyLubricenterState.Error("Error al obtener datos del lubricentro")
+                    }
+                }
+            }
+            .addOnFailureListener { exception ->
+                _verifyLubricenterState.value =
+                    VerifyLubricenterState.Error(exception.message ?: "Error al verificar el lubricentro")
+            }
+    }
+
     fun registerEmployee(
         name: String,
         lastName: String,
         email: String,
         password: String,
-        lubricenterId: String // Ahora recibimos el ID directamente
+        lubricenterId: String
     ) {
-        if (name.isEmpty() || email.isEmpty() || password.isEmpty()) {
-            _employeeRegisterState.value = EmployeeRegisterState.Error("Todos los campos marcados con * son obligatorios")
-            return
-        }
-
-        if (password.length < 6) {
-            _employeeRegisterState.value = EmployeeRegisterState.Error("La contraseña debe tener al menos 6 caracteres")
-            return
-        }
-
         _employeeRegisterState.value = EmployeeRegisterState.Loading
 
-        viewModelScope.launch {
-            // Registrar usuario como EMPLOYEE
-            val fullName = "$name $lastName"
-            authRepository.signUp(email, password, fullName)
-                .onSuccess { userId ->
-                    // Actualizar el usuario con el ID del lubricentro y el rol
-                    authRepository.updateUserRole(
-                        userId,
-                        UserRole.EMPLOYEE,
-                        lubricenterId
-                    ).onSuccess {
+        // Primero registrar el usuario en Authentication
+        auth.createUserWithEmailAndPassword(email, password)
+            .addOnSuccessListener { authResult ->
+                val userId = authResult.user?.uid ?: ""
+
+                // Crear el objeto User para el empleado usando tu modelo existente
+                val user = User(
+                    id = userId,
+                    name = name,
+                    lastName = lastName,
+                    email = email,
+                    role = UserRole.EMPLOYEE,
+                    lubricenterId = lubricenterId,
+                    active = true,
+                    lastLogin = System.currentTimeMillis(),
+                    createdAt = System.currentTimeMillis()
+                )
+
+                // Guardar el usuario en Firestore
+                db.collection("users")
+                    .document(userId)
+                    .set(user)
+                    .addOnSuccessListener {
                         _employeeRegisterState.value = EmployeeRegisterState.Success
-                        _navigationEvent.emit(AuthNavigationEvent.NavigateToDashboard)
-                    }.onFailure { error ->
-                        _employeeRegisterState.value = EmployeeRegisterState.Error(
-                            "Error al actualizar datos del usuario: ${error.message}"
-                        )
                     }
-                }
-                .onFailure { error ->
-                    _employeeRegisterState.value = EmployeeRegisterState.Error(
-                        "Error en el registro: ${error.message}"
-                    )
-                }
-        }
+                    .addOnFailureListener { exception ->
+                        _employeeRegisterState.value =
+                            EmployeeRegisterState.Error(exception.message ?: "Error al guardar el usuario")
+                    }
+            }
+            .addOnFailureListener { exception ->
+                _employeeRegisterState.value =
+                    EmployeeRegisterState.Error(exception.message ?: "Error de registro")
+            }
     }
 
-    // Función de registro existente (podemos mantenerla por compatibilidad)
-    fun register(name: String, email: String, password: String) {
-        if (name.isEmpty() || email.isEmpty() || password.isEmpty()) {
-            _registerState.value = RegisterState.Error("Todos los campos son obligatorios")
-            return
-        }
-
-        if (password.length < 6) {
-            _registerState.value = RegisterState.Error("La contraseña debe tener al menos 6 caracteres")
-            return
-        }
-
-        _registerState.value = RegisterState.Loading
-
-        viewModelScope.launch {
-            authRepository.signUp(email, password, name)
-                .onSuccess {
-                    _registerState.value = RegisterState.Success
-                    _navigationEvent.emit(AuthNavigationEvent.NavigateToDashboard)
-                }
-                .onFailure {
-                    _registerState.value = RegisterState.Error(it.message ?: "Error desconocido")
-                }
-        }
-    }
-
-    // Funciones de navegación
-    fun navigateToRegister() {
-        viewModelScope.launch {
-            _navigationEvent.emit(AuthNavigationEvent.NavigateToRegister)
-        }
-    }
-
-    fun navigateToRegisterSelection() {
-        viewModelScope.launch {
-            _navigationEvent.emit(AuthNavigationEvent.NavigateToRegisterSelection)
-        }
-    }
-
-    fun navigateToRegisterLubricenter() {
-        viewModelScope.launch {
-            _navigationEvent.emit(AuthNavigationEvent.NavigateToRegisterLubricenter)
-        }
-    }
-
-    fun navigateToRegisterEmployee() {
-        viewModelScope.launch {
-            _navigationEvent.emit(AuthNavigationEvent.NavigateToRegisterEmployee)
-        }
+    fun setRegistrationType(type: RegistrationType) {
+        registrationType = type
     }
 
     fun navigateToLogin() {
-        viewModelScope.launch {
-            _navigationEvent.emit(AuthNavigationEvent.NavigateToLogin)
-        }
+        _navigationEvent.value = NavigationEvent.NavigateToLogin
     }
 
-    fun navigateToForgotPassword() {
-        viewModelScope.launch {
-            _navigationEvent.emit(AuthNavigationEvent.NavigateToForgotPassword)
-        }
+    fun navigateToRegisterLubricenter() {
+        _navigationEvent.value = NavigationEvent.NavigateToRegisterLubricenter
     }
 
-    // Estados para el login
-    sealed class LoginState {
-        object Loading : LoginState()
-        object Success : LoginState()
-        data class Error(val message: String) : LoginState()
+    fun navigateToRegisterEmployee() {
+        _navigationEvent.value = NavigationEvent.NavigateToRegisterEmployee
     }
 
-    // Estados para el registro general
+    // Estados para autenticación
+    sealed class AuthState {
+        object Unauthenticated : AuthState()
+        object Loading : AuthState()
+        data class Authenticated(val userId: String) : AuthState()
+        data class Error(val message: String) : AuthState()
+    }
+
+    // Estados para registro normal
     sealed class RegisterState {
+        object Idle : RegisterState()
         object Loading : RegisterState()
-        object Success : RegisterState()
+        data class Success(val userId: String) : RegisterState()
         data class Error(val message: String) : RegisterState()
     }
 
-    // Estados para el registro de lubricentro
+    // Estados para registro de lubricentro
     sealed class LubricenterRegisterState {
+        object Idle : LubricenterRegisterState()
         object Loading : LubricenterRegisterState()
         object Success : LubricenterRegisterState()
         data class Error(val message: String) : LubricenterRegisterState()
     }
 
-    // Estados para el registro de empleado
+    // Estados para registro de empleado
     sealed class EmployeeRegisterState {
+        object Idle : EmployeeRegisterState()
         object Loading : EmployeeRegisterState()
         object Success : EmployeeRegisterState()
         data class Error(val message: String) : EmployeeRegisterState()
     }
 
-    // Estados para la verificación de lubricentro (nuevo)
+    // Estados para verificación de lubricentro
     sealed class VerifyLubricenterState {
+        object Idle : VerifyLubricenterState()
         object Loading : VerifyLubricenterState()
-        data class Success(val lubricenter: Lubricenter) : VerifyLubricenterState()
+        object NotFound : VerifyLubricenterState()
+        data class Found(val lubricenter: Lubricenter) : VerifyLubricenterState()
         data class Error(val message: String) : VerifyLubricenterState()
+    }
+
+    // Eventos de navegación
+    sealed class NavigationEvent {
+        object NavigateToLogin : NavigationEvent()
+        object NavigateToRegisterLubricenter : NavigationEvent()
+        object NavigateToRegisterEmployee : NavigationEvent()
+    }
+
+    // Tipos de registro
+    enum class RegistrationType {
+        LUBRICENTER, EMPLOYEE
     }
 }

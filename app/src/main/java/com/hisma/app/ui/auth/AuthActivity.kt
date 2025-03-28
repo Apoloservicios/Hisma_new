@@ -1,20 +1,21 @@
 package com.hisma.app.ui.auth
 
-import android.content.Intent
 import android.os.Bundle
+import android.util.Log
+import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
+import androidx.navigation.NavController
+import androidx.navigation.fragment.NavHostFragment
+import com.hisma.app.R
 import com.hisma.app.databinding.ActivityAuthBinding
-import com.hisma.app.ui.dashboard.DashboardActivity
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class AuthActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityAuthBinding
+    lateinit var navController: NavController
     private val viewModel: AuthViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -22,73 +23,36 @@ class AuthActivity : AppCompatActivity() {
         binding = ActivityAuthBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Observar eventos de navegación
-        lifecycleScope.launch {
-            viewModel.navigationEvent.collectLatest { event ->
-                when (event) {
-                    is AuthNavigationEvent.NavigateToDashboard -> navigateToDashboard()
-                    is AuthNavigationEvent.NavigateToRegisterSelection -> navigateToRegisterSelection()
-                    is AuthNavigationEvent.NavigateToRegisterLubricenter -> navigateToRegisterLubricenter()
-                    is AuthNavigationEvent.NavigateToRegisterEmployee -> navigateToRegisterEmployee()
-                    is AuthNavigationEvent.NavigateToRegister -> navigateToRegister()
-                    is AuthNavigationEvent.NavigateToLogin -> navigateToLogin()
-                    is AuthNavigationEvent.NavigateToForgotPassword -> navigateToForgotPassword()
+        // Configurar navegación con manejo de nulos
+        val navHostFragment = supportFragmentManager.findFragmentById(R.id.auth_container)
+        if (navHostFragment != null && navHostFragment is NavHostFragment) {
+            navController = navHostFragment.navController
+            // Observar eventos de navegación
+            observeNavigationEvents()
+        } else {
+            Log.e("AuthActivity", "NavHostFragment not found! Check your layout.")
+            Toast.makeText(this, "Error al inicializar la navegación", Toast.LENGTH_LONG).show()
+            finish() // Cierra la actividad en caso de error
+        }
+    }
+
+    private fun observeNavigationEvents() {
+        viewModel.navigationEvent.observe(this) { event ->
+            when (event) {
+                is AuthViewModel.NavigationEvent.NavigateToLogin -> {
+                    navController.navigate(R.id.loginFragment)
+                }
+                is AuthViewModel.NavigationEvent.NavigateToRegisterLubricenter -> {
+                    navController.navigate(R.id.registerLubricenterFragment)
+                }
+                is AuthViewModel.NavigationEvent.NavigateToRegisterEmployee -> {
+                    navController.navigate(R.id.registerEmployeeFragment)
                 }
             }
         }
-
-        // Mostrar fragmento de login por defecto
-        if (savedInstanceState == null) {
-            supportFragmentManager.beginTransaction()
-                .replace(binding.authContainer.id, LoginFragment())
-                .commit()
-        }
     }
 
-    private fun navigateToDashboard() {
-        val intent = Intent(this, DashboardActivity::class.java)
-        startActivity(intent)
-        finish()
-    }
-
-    private fun navigateToRegisterSelection() {
-        supportFragmentManager.beginTransaction()
-            .replace(binding.authContainer.id, RegisterSelectionFragment())
-            .addToBackStack(null)
-            .commit()
-    }
-
-    private fun navigateToRegisterLubricenter() {
-        supportFragmentManager.beginTransaction()
-            .replace(binding.authContainer.id, RegisterLubricenterFragment())
-            .addToBackStack(null)
-            .commit()
-    }
-
-    private fun navigateToRegisterEmployee() {
-        supportFragmentManager.beginTransaction()
-            .replace(binding.authContainer.id, RegisterEmployeeFragment())
-            .addToBackStack(null)
-            .commit()
-    }
-
-    private fun navigateToRegister() {
-        supportFragmentManager.beginTransaction()
-            .replace(binding.authContainer.id, RegisterFragment())
-            .addToBackStack(null)
-            .commit()
-    }
-
-    private fun navigateToLogin() {
-        supportFragmentManager.popBackStack()
-    }
-
-    private fun navigateToForgotPassword() {
-        // Para implementar en el futuro
-        android.widget.Toast.makeText(
-            this,
-            "Recuperación de contraseña será implementada próximamente",
-            android.widget.Toast.LENGTH_SHORT
-        ).show()
+    override fun onSupportNavigateUp(): Boolean {
+        return navController.navigateUp() || super.onSupportNavigateUp()
     }
 }

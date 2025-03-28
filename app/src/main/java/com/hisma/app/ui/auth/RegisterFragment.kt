@@ -6,7 +6,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
+import androidx.navigation.fragment.findNavController
 import com.hisma.app.databinding.FragmentRegisterBinding
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -16,7 +17,7 @@ class RegisterFragment : Fragment() {
     private var _binding: FragmentRegisterBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: AuthViewModel by activityViewModels()
+    private val viewModel: AuthViewModel by viewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -30,21 +31,24 @@ class RegisterFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Configurar botón de registro
+        setupClickListeners()
+        observeViewModel()
+    }
+
+    private fun setupClickListeners() {
+        // Botón de registro
         binding.buttonRegister.setOnClickListener {
-            val name = binding.editTextName.text.toString()
-            val email = binding.editTextEmail.text.toString()
-            val password = binding.editTextPassword.text.toString()
-
-            viewModel.register(name, email, password)
+            register()
         }
 
-        // Configurar texto para ir a login
+        // Texto "Iniciar sesión"
         binding.textLogin.setOnClickListener {
-            viewModel.navigateToLogin()
+            findNavController().navigateUp()
         }
+    }
 
-        // Observar estado de registro
+    private fun observeViewModel() {
+        // Observar el estado del registro
         viewModel.registerState.observe(viewLifecycleOwner) { state ->
             when (state) {
                 is AuthViewModel.RegisterState.Loading -> {
@@ -54,20 +58,36 @@ class RegisterFragment : Fragment() {
                 is AuthViewModel.RegisterState.Success -> {
                     binding.progressBar.visibility = View.GONE
                     binding.buttonRegister.isEnabled = true
-                    Toast.makeText(
-                        requireContext(),
-                        "Registro exitoso. Por favor verifica tu correo electrónico.",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    Toast.makeText(requireContext(), "Registro exitoso", Toast.LENGTH_LONG).show()
+                    findNavController().navigateUp()
                 }
                 is AuthViewModel.RegisterState.Error -> {
                     binding.progressBar.visibility = View.GONE
                     binding.buttonRegister.isEnabled = true
-                    Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), state.message, Toast.LENGTH_LONG).show()
                 }
-                null -> { /* No hacer nada */ }
+                else -> {
+                    binding.progressBar.visibility = View.GONE
+                    binding.buttonRegister.isEnabled = true
+                }
             }
         }
+    }
+
+    private fun register() {
+        // Obtener datos del formulario
+        val name = binding.editTextName.text.toString().trim()
+        val email = binding.editTextEmail.text.toString().trim()
+        val password = binding.editTextPassword.text.toString().trim()
+
+        // Validar datos
+        if (name.isEmpty() || email.isEmpty() || password.isEmpty()) {
+            Toast.makeText(requireContext(), "Por favor complete todos los campos", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // Intentar registrar
+        viewModel.register(email, password)
     }
 
     override fun onDestroyView() {

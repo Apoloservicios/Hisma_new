@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_auth"
+    app:startDestination="@id/loginFragment">
+
+    <fragment
+        android:id="@+id/loginFragment"
+        android:name="com.hisma.app.ui.auth.LoginFragment"
+        android:label="fragment_login"
+        tools:layout="@layout/fragment_login">
+        <action
+            android:id="@+id/action_loginFragment_to_registerSelectionFragment"
+            app:destination="@id/registerSelectionFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/registerSelectionFragment"
+        android:name="com.hisma.app.ui.auth.RegisterSelectionFragment"
+        android:label="fragment_register_selection"
+        tools:layout="@layout/fragment_register_selection">
+        <action
+            android:id="@+id/action_registerSelectionFragment_to_registerLubricenterFragment"
+            app:destination="@id/registerLubricenterFragment" />
+        <action
+            android:id="@+id/action_registerSelectionFragment_to_registerEmployeeFragment"
+            app:destination="@id/registerEmployeeFragment" />
+        <action
+            android:id="@+id/action_registerSelectionFragment_to_loginFragment"
+            app:destination="@id/loginFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/registerLubricenterFragment"
+        android:name="com.hisma.app.ui.auth.RegisterLubricenterFragment"
+        android:label="fragment_register_lubricenter"
+        tools:layout="@layout/fragment_register_lubricenter">
+        <action
+            android:id="@+id/action_registerLubricenterFragment_to_loginFragment"
+            app:destination="@id/loginFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/registerEmployeeFragment"
+        android:name="com.hisma.app.ui.auth.RegisterEmployeeFragment"
+        android:label="fragment_register_employee"
+        tools:layout="@layout/fragment_register_employee">
+        <action
+            android:id="@+id/action_registerEmployeeFragment_to_loginFragment"
+            app:destination="@id/loginFragment" />
+    </fragment>
+
+</navigation>

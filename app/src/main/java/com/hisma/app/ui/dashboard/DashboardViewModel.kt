@@ -1,134 +1,111 @@
 package com.hisma.app.ui.dashboard
 
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.hisma.app.domain.model.Lubricenter
-import com.hisma.app.domain.model.Subscription
-import com.hisma.app.domain.model.User
-import com.hisma.app.domain.repository.AuthRepository
-import com.hisma.app.domain.repository.LubricenterRepository
-import com.hisma.app.domain.repository.SubscriptionRepository
-import com.hisma.app.domain.usecase.subscription.CheckSubscriptionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class DashboardViewModel @Inject constructor(
-    private val authRepository: AuthRepository,
-    private val lubricenterRepository: LubricenterRepository,
-    private val subscriptionRepository: SubscriptionRepository,
-    private val checkSubscriptionUseCase: CheckSubscriptionUseCase
-) : ViewModel() {
+class DashboardViewModel @Inject constructor() : ViewModel() {
 
-    private val _lubricenter = MutableLiveData<Lubricenter>()
-    val lubricenter: LiveData<Lubricenter> = _lubricenter
+    private val db = FirebaseFirestore.getInstance()
+    private val auth = FirebaseAuth.getInstance()
 
-    private val _subscription = MutableLiveData<Subscription?>()
-    val subscription: LiveData<Subscription?> = _subscription
+    private val _lubricenterData = MutableLiveData<Lubricenter?>()
+    val lubricenterData: LiveData<Lubricenter?> = _lubricenterData
 
-    private val _currentUser = MutableLiveData<User?>()
-    val currentUser: LiveData<User?> = _currentUser
+    fun loadLubricenterInfo() {
+        val userId = auth.currentUser?.uid
+        if (userId == null) {
+            Log.e("DashboardViewModel", "Usuario no autenticado")
+            return
+        }
 
-    private val _subscriptionState = MutableLiveData<CheckSubscriptionUseCase.SubscriptionState>()
-    val subscriptionState: LiveData<CheckSubscriptionUseCase.SubscriptionState> = _subscriptionState
+        Log.d("DashboardViewModel", "Cargando info para userId: $userId")
 
-    private val _navigationEvent = MutableSharedFlow<DashboardNavigationEvent>()
-    val navigationEvent: SharedFlow<DashboardNavigationEvent> = _navigationEvent
-
-    init {
-        loadCurrentUser()
+        // Primero intentamos buscar por ownerId
+        loadLubricenterByOwnerId(userId)
     }
 
-    private fun loadCurrentUser() {
-        viewModelScope.launch {
-            val user = authRepository.getCurrentUser()
-            _currentUser.value = user
-
-            // Cargar lubricentro asociado al usuario
-            user?.let {
-                if (user.lubricenterId.isNotEmpty()) {
-                    loadLubricenterById(user.lubricenterId)
+    private fun loadLubricenterByOwnerId(userId: String) {
+        db.collection("lubricenters")
+            .whereEqualTo("ownerId", userId)
+            .limit(1)
+            .get()
+            .addOnSuccessListener { documents ->
+                if (!documents.isEmpty) {
+                    handleLubricenterDocuments(documents.documents[0])
                 } else {
-                    // Si el usuario es un administrador, cargar sus lubricentros
-                    loadLubricentersByOwnerId(user.id)
+                    // Si no se encuentra como propietario, buscamos por empleado
+                    loadLubricenterForEmployee(userId)
                 }
             }
-        }
+            .addOnFailureListener { exception ->
+                Log.e("DashboardViewModel", "Error cargando lubricentro por ownerId", exception)
+                // Intentamos buscar como empleado en caso de error
+                loadLubricenterForEmployee(userId)
+            }
     }
 
-    private fun loadLubricenterById(lubricenterId: String) {
-        viewModelScope.launch {
-            lubricenterRepository.getLubricenterById(lubricenterId)
-                .onSuccess { lubricenter ->
-                    _lubricenter.value = lubricenter
-                    loadSubscription(lubricenter.id)
-                    checkSubscription(lubricenter.id)
-                }
-                .onFailure {
-                    // Manejar error
-                }
-        }
-    }
-
-    private fun loadLubricentersByOwnerId(ownerId: String) {
-        viewModelScope.launch {
-            lubricenterRepository.getLubricentersByOwnerId(ownerId)
-                .onSuccess { lubricenters ->
-                    if (lubricenters.isNotEmpty()) {
-                        _lubricenter.value = lubricenters.first()
-                        loadSubscription(lubricenters.first().id)
-                        checkSubscription(lubricenters.first().id)
+    private fun loadLubricenterForEmployee(userId: String) {
+        // Primero obtenemos el documento del usuario para obtener el lubricenterId
+        db.collection("users")
+            .document(userId)
+            .get()
+            .addOnSuccessListener { userDocument ->
+                if (userDocument.exists()) {
+                    val lubricenterId = userDocument.getString("lubricenterId")
+                    if (!lubricenterId.isNullOrEmpty()) {
+                        // Ahora buscamos el lubricentro con ese ID
+                        db.collection("lubricenters")
+                            .document(lubricenterId)
+                            .get()
+                            .addOnSuccessListener { lubricenterDocument ->
+                                if (lubricenterDocument.exists()) {
+                                    handleLubricenterDocuments(lubricenterDocument)
+                                } else {
+                                    Log.w("DashboardViewModel", "No se encontró el lubricentro con ID: $lubricenterId")
+                                    _lubricenterData.value = null
+                                }
+                            }
+                            .addOnFailureListener { exception ->
+                                Log.e("DashboardViewModel", "Error cargando lubricentro por ID", exception)
+                                _lubricenterData.value = null
+                            }
+                    } else {
+                        Log.w("DashboardViewModel", "Usuario sin lubricenterId asignado")
+                        _lubricenterData.value = null
                     }
+                } else {
+                    Log.w("DashboardViewModel", "No se encontró documento de usuario para $userId")
+                    _lubricenterData.value = null
                 }
-                .onFailure {
-                    // Manejar error
-                }
-        }
-    }
-
-    private fun loadSubscription(lubricenterId: String) {
-        viewModelScope.launch {
-            subscriptionRepository.getSubscriptionByLubricenterId(lubricenterId)
-                .onSuccess { subscription ->
-                    _subscription.value = subscription
-                }
-                .onFailure {
-                    // Manejar error
-                }
-        }
-    }
-
-    fun checkSubscription(lubricenterId: String) {
-        viewModelScope.launch {
-            val state = checkSubscriptionUseCase(lubricenterId)
-            _subscriptionState.value = state
-
-            if (state !is CheckSubscriptionUseCase.SubscriptionState.Valid) {
-                // Si no es válida, navegar a pantalla de suscripción expirada
-                val message = when (state) {
-                    is CheckSubscriptionUseCase.SubscriptionState.Expired -> state.message
-                    is CheckSubscriptionUseCase.SubscriptionState.Error -> "Error al verificar su suscripción. Por favor contacte a soporte."
-                    else -> "Su suscripción ha expirado."
-                }
-                _navigationEvent.emit(DashboardNavigationEvent.NavigateToSubscriptionExpired(message))
             }
-        }
+            .addOnFailureListener { exception ->
+                Log.e("DashboardViewModel", "Error obteniendo datos de usuario", exception)
+                _lubricenterData.value = null
+            }
     }
 
-    fun logout() {
-        viewModelScope.launch {
-            authRepository.signOut()
-            _navigationEvent.emit(DashboardNavigationEvent.NavigateToLogin)
+    private fun handleLubricenterDocuments(document: com.google.firebase.firestore.DocumentSnapshot) {
+        try {
+            val lubricenter = document.toObject(Lubricenter::class.java)
+            if (lubricenter != null) {
+                val updatedLubricenter = lubricenter.copy(id = document.id)
+                _lubricenterData.value = updatedLubricenter
+                Log.d("DashboardViewModel", "Lubricentro cargado: ${updatedLubricenter.fantasyName}")
+            } else {
+                Log.e("DashboardViewModel", "No se pudo convertir documento a Lubricenter")
+                _lubricenterData.value = null
+            }
+        } catch (e: Exception) {
+            Log.e("DashboardViewModel", "Error procesando documento de lubricentro", e)
+            _lubricenterData.value = null
         }
-    }
-
-    sealed class DashboardNavigationEvent {
-        data class NavigateToSubscriptionExpired(val message: String) : DashboardNavigationEvent()
-        object NavigateToLogin : DashboardNavigationEvent()
     }
 }

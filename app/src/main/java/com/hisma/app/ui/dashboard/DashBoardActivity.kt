@@ -2,12 +2,14 @@ package com.hisma.app.ui.dashboard
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.hisma.app.R
 import com.hisma.app.databinding.ActivityDashboardBinding
 import com.hisma.app.ui.auth.AuthActivity
@@ -15,166 +17,164 @@ import com.hisma.app.ui.oilchange.RegisterOilChangeActivity
 import com.hisma.app.ui.profile.ProfileActivity
 import com.hisma.app.ui.records.RecordsListActivity
 import com.hisma.app.ui.subscription.SubscriptionDetailsActivity
-import com.hisma.app.ui.subscription.SubscriptionExpiredActivity
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
-import com.hisma.app.domain.usecase.subscription.CheckSubscriptionUseCase
-import java.util.Date
-import java.util.Locale
-import java.util.concurrent.TimeUnit
 
 @AndroidEntryPoint
 class DashboardActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityDashboardBinding
     private val viewModel: DashboardViewModel by viewModels()
+    private val db = FirebaseFirestore.getInstance()
+    private val auth = FirebaseAuth.getInstance()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityDashboardBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Configurar toolbar
+        // Configurar la toolbar
         setSupportActionBar(binding.toolbar)
 
-        // Configurar acciones de botones
-        setupButtonListeners()
+        // Mostrar la información del usuario actual
+        showCurrentUserInfo()
 
-        // Observar datos del lubricentro
-        observeLubricenterData()
+        // Cargar información del lubricentro
+        loadLubricenterInfo()
 
-        // Observar datos de suscripción
-        observeSubscriptionData()
+        // Configurar listeners de los botones
+        setupClickListeners()
 
-        // Observar eventos de navegación
-        observeNavigationEvents()
+        // Observar cambios en el ViewModel
+        observeViewModel()
     }
 
-    private fun setupButtonListeners() {
-        // Botón para registrar cambio de aceite
-        binding.buttonRegisterOilChange.setOnClickListener {
-            navigateToRegisterOilChange()
-        }
+    private fun showCurrentUserInfo() {
+        val currentUser = auth.currentUser
+        if (currentUser != null) {
+            // Buscar información del usuario en Firestore
+            db.collection("users")
+                .document(currentUser.uid)
+                .get()
+                .addOnSuccessListener { document ->
+                    if (document != null && document.exists()) {
+                        val name = document.getString("name") ?: ""
+                        val lastName = document.getString("lastName") ?: ""
+                        val role = document.getString("role") ?: "EMPLOYEE"
 
-        // Botón del FAB para registrar cambio rápidamente
+                        val displayName = if (name.isNotEmpty() && lastName.isNotEmpty()) {
+                            "$name $lastName"
+                        } else {
+                            currentUser.email ?: "Usuario"
+                        }
+
+                        binding.textUserName.text = displayName
+
+                        // Mostrar el rol del usuario
+                        when (role) {
+                            "SYSTEM_ADMIN" -> binding.textUserRole.text = "Admin Sistema"
+                            "LUBRICENTER_ADMIN" -> binding.textUserRole.text = "Admin"
+                            else -> binding.textUserRole.text = "Empleado"
+                        }
+                    } else {
+                        binding.textUserName.text = currentUser.email ?: "Usuario"
+                        binding.textUserRole.text = "Usuario"
+                    }
+                }
+                .addOnFailureListener { e ->
+                    Log.e("DashboardActivity", "Error al obtener datos del usuario", e)
+                    binding.textUserName.text = currentUser.email ?: "Usuario"
+                    binding.textUserRole.text = "Usuario"
+                }
+        } else {
+            // El usuario no está autenticado
+            navigateToLogin()
+        }
+    }
+
+    private fun loadLubricenterInfo() {
+        viewModel.loadLubricenterInfo()
+    }
+
+    private fun setupClickListeners() {
+        // Botón FAB para agregar cambio de aceite
         binding.fabAddOilChange.setOnClickListener {
             navigateToRegisterOilChange()
         }
 
-        // Botón para ver detalles de suscripción
-        binding.buttonSubscriptionDetails.setOnClickListener {
-            startActivity(Intent(this, SubscriptionDetailsActivity::class.java))
+        // Botones principales
+        binding.buttonProfile.setOnClickListener {
+            navigateToProfile()
         }
 
-        // Botón para ver recorridos
-        binding.buttonViewRecords.setOnClickListener {
-            startActivity(Intent(this, RecordsListActivity::class.java))
+        binding.buttonUsers.setOnClickListener {
+            // Para implementar en el futuro
+            Toast.makeText(this, "Funcionalidad en desarrollo", Toast.LENGTH_SHORT).show()
+        }
+
+        binding.buttonReports.setOnClickListener {
+            // Para implementar en el futuro
+            Toast.makeText(this, "Funcionalidad en desarrollo", Toast.LENGTH_SHORT).show()
+        }
+
+        binding.buttonRecords.setOnClickListener {
+            navigateToRecordsList()
+        }
+    }
+
+    private fun observeViewModel() {
+        // Observar datos del lubricentro
+        viewModel.lubricenterData.observe(this) { lubricenter ->
+            if (lubricenter != null) {
+                binding.textLubricenterName.text = lubricenter.fantasyName ?: "Mi Lubricentro"
+            } else {
+                // Si no hay datos, mostrar un mensaje genérico
+                binding.textLubricenterName.text = "Mi Lubricentro"
+
+                // También podríamos verificar si necesitamos crear un lubricentro
+                // checkIfLubricenterNeeded()
+            }
+        }
+    }
+
+    // Método opcional para verificar si es necesario crear un lubricentro
+    private fun checkIfLubricenterNeeded() {
+        val currentUser = auth.currentUser
+        if (currentUser != null) {
+            db.collection("users")
+                .document(currentUser.uid)
+                .get()
+                .addOnSuccessListener { document ->
+                    if (document != null && document.exists()) {
+                        val role = document.getString("role")
+                        if (role == "LUBRICENTER_ADMIN") {
+                            // Es un administrador pero no tiene lubricentro
+                            Toast.makeText(this,
+                                "No se encontró ningún lubricentro. Por favor cree uno desde su perfil.",
+                                Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
         }
     }
 
     private fun navigateToRegisterOilChange() {
-        // Verificar que la suscripción esté activa antes de permitir registrar
-        viewModel.checkSubscription(viewModel.lubricenter.value?.id ?: "")
-
-        // Si no hay problemas con la suscripción, navegar a la pantalla de registro
-        if (viewModel.subscriptionState.value is CheckSubscriptionUseCase.SubscriptionState.Valid) {
-            startActivity(Intent(this, RegisterOilChangeActivity::class.java))
-        } else {
-            // Si hay algún problema con la suscripción, mostrar un mensaje
-            Toast.makeText(
-                this,
-                "Verifique su suscripción antes de registrar cambios de aceite",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-    }
-
-    private fun observeLubricenterData() {
-        viewModel.lubricenter.observe(this) { lubricenter ->
-            binding.textLubricenterName.text = lubricenter.fantasyName
-            binding.textLubricenterAddress.text = lubricenter.address
-            binding.textLubricenterPhone.text = lubricenter.phone
-            binding.textLubricenterEmail.text = lubricenter.email
-        }
-    }
-
-    private fun observeSubscriptionData() {
-        viewModel.subscription.observe(this) { subscription ->
-            if (subscription != null) {
-                // Actualizar estado de suscripción
-                binding.textSubscriptionStatus.text = "Estado: ${subscription.status.name}"
-                binding.textSubscriptionPlan.text = "Plan: ${subscription.planType.name}"
-
-                // Calcular días restantes
-                val currentTime = System.currentTimeMillis()
-                val daysRemaining = TimeUnit.MILLISECONDS.toDays(subscription.endDate - currentTime)
-                binding.textSubscriptionExpiry.text = "Expira en: $daysRemaining días"
-
-                // Mostrar mensaje de alerta si quedan pocos días
-                if (daysRemaining <= 3) {
-                    binding.textSubscriptionExpiry.setTextColor(getColor(R.color.error_red))
-                }
-            } else {
-                binding.textSubscriptionStatus.text = "Estado: No disponible"
-                binding.textSubscriptionPlan.text = "Plan: No disponible"
-                binding.textSubscriptionExpiry.text = "Expira en: No disponible"
-            }
-        }
-    }
-
-    private fun observeNavigationEvents() {
-        lifecycleScope.launch {
-            viewModel.navigationEvent.collectLatest { event ->
-                when (event) {
-                    is DashboardViewModel.DashboardNavigationEvent.NavigateToSubscriptionExpired -> {
-                        navigateToSubscriptionExpired(event.message)
-                    }
-                    is DashboardViewModel.DashboardNavigationEvent.NavigateToLogin -> {
-                        navigateToLogin()
-                    }
-                }
-            }
-        }
-    }
-
-    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        menuInflater.inflate(R.menu.menu_dashboard, menu)
-        return true
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return when (item.itemId) {
-            R.id.action_profile -> {
-                startActivity(Intent(this, ProfileActivity::class.java))
-                true
-            }
-            R.id.action_subscription -> {
-                startActivity(Intent(this, SubscriptionDetailsActivity::class.java))
-                true
-            }
-            R.id.action_logout -> {
-                logout()
-                true
-            }
-            android.R.id.home -> {
-                onBackPressed()
-                true
-            }
-            else -> super.onOptionsItemSelected(item)
-        }
-    }
-
-    private fun logout() {
-        viewModel.logout()
-    }
-
-    private fun navigateToSubscriptionExpired(message: String) {
-        val intent = Intent(this, SubscriptionExpiredActivity::class.java).apply {
-            putExtra(SubscriptionExpiredActivity.EXTRA_MESSAGE, message)
-        }
+        val intent = Intent(this, RegisterOilChangeActivity::class.java)
         startActivity(intent)
-        finish()
+    }
+
+    private fun navigateToRecordsList() {
+        val intent = Intent(this, RecordsListActivity::class.java)
+        startActivity(intent)
+    }
+
+    private fun navigateToProfile() {
+        val intent = Intent(this, ProfileActivity::class.java)
+        startActivity(intent)
+    }
+
+    private fun navigateToSubscriptionDetails() {
+        val intent = Intent(this, SubscriptionDetailsActivity::class.java)
+        startActivity(intent)
     }
 
     private fun navigateToLogin() {
@@ -182,5 +182,33 @@ class DashboardActivity : AppCompatActivity() {
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         startActivity(intent)
         finish()
+    }
+
+    private fun logout() {
+        auth.signOut()
+        navigateToLogin()
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.menu_dashboard, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_profile -> {
+                navigateToProfile()
+                true
+            }
+            R.id.action_subscription -> {
+                navigateToSubscriptionDetails()
+                true
+            }
+            R.id.action_logout -> {
+                logout()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
     }
 }

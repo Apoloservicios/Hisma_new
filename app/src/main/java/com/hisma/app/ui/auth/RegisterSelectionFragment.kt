@@ -5,7 +5,9 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
+import androidx.navigation.fragment.findNavController
+import com.hisma.app.R
 import com.hisma.app.databinding.FragmentRegisterSelectionBinding
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -15,7 +17,7 @@ class RegisterSelectionFragment : Fragment() {
     private var _binding: FragmentRegisterSelectionBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: AuthViewModel by activityViewModels()
+    private val viewModel: AuthViewModel by viewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -29,21 +31,25 @@ class RegisterSelectionFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Configurar clic para registro de lubricentro
+        setupClickListeners()
+    }
+
+    private fun setupClickListeners() {
+        // Opción de registrar lubricentro
         binding.cardLubricenter.setOnClickListener {
             viewModel.setRegistrationType(AuthViewModel.RegistrationType.LUBRICENTER)
-            viewModel.navigateToRegisterLubricenter()
+            findNavController().navigate(R.id.action_registerSelectionFragment_to_registerLubricenterFragment)
         }
 
-        // Configurar clic para registro de empleado
+        // Opción de registrar empleado
         binding.cardEmployee.setOnClickListener {
             viewModel.setRegistrationType(AuthViewModel.RegistrationType.EMPLOYEE)
-            viewModel.navigateToRegisterEmployee()
+            findNavController().navigate(R.id.action_registerSelectionFragment_to_registerEmployeeFragment)
         }
 
-        // Configurar texto para ir a login
+        // Texto "Iniciar sesión"
         binding.textLogin.setOnClickListener {
-            viewModel.navigateToLogin()
+            findNavController().navigate(R.id.action_registerSelectionFragment_to_loginFragment)
         }
     }
 

@@ -3,4 +3,16 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="error_red">#F44336</color>
+
+    <!-- Brand colors -->
+    <color name="primary">#2E7D32</color>    <!-- Dark green -->
+    <color name="primary_variant">#1B5E20</color>  <!-- Darker green -->
+    <color name="secondary">#FF8F00</color>  <!-- Warm orange -->
+    <color name="secondary_variant">#F57C00</color>  <!-- Darker orange -->
+
+    <!-- Additional colors -->
+    <color name="light_green">#81C784</color>
+    <color name="light_orange">#FFB74D</color>
+    <color name="background_light">#F5F5F5</color>
+    <color name="background_dark">#121212</color>
 </resources>

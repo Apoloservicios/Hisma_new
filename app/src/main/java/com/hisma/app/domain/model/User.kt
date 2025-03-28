@@ -12,6 +12,8 @@ data class User(
     val createdAt: Long = System.currentTimeMillis()
 )
 
+
+
 enum class UserRole {
     SYSTEM_ADMIN,   // Administrador del sistema
     LUBRICENTER_ADMIN,  // Administrador de un lubricentro

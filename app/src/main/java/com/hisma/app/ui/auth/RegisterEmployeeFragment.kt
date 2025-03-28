@@ -6,7 +6,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
+import androidx.navigation.fragment.findNavController
+import com.hisma.app.R
 import com.hisma.app.databinding.FragmentRegisterEmployeeBinding
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -16,10 +18,8 @@ class RegisterEmployeeFragment : Fragment() {
     private var _binding: FragmentRegisterEmployeeBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: AuthViewModel by activityViewModels()
-
-    // Variable para almacenar el ID del lubricentro verificado
-    private var verifiedLubricenterId: String? = null
+    private val viewModel: AuthViewModel by viewModels()
+    private var lubricenterId = ""
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -33,69 +33,71 @@ class RegisterEmployeeFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Configurar botón de verificación
+        setupClickListeners()
+        observeViewModel()
+    }
+
+    private fun setupClickListeners() {
+        // Botón para verificar lubricentro
         binding.buttonVerifyLubricenter.setOnClickListener {
-            val cuit = binding.editTextLubricenterCuit.text.toString()
+            val cuit = binding.editTextLubricenterCuit.text.toString().trim()
             if (cuit.isNotEmpty()) {
                 viewModel.verifyLubricenter(cuit)
             } else {
-                Toast.makeText(requireContext(), "Ingrese el CUIT del lubricentro", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "Por favor ingrese el CUIT del lubricentro", Toast.LENGTH_SHORT).show()
             }
         }
 
-        // Configurar botón de registro (inicialmente deshabilitado)
-        binding.buttonRegister.isEnabled = false
+        // Botón de registro
         binding.buttonRegister.setOnClickListener {
-            val name = binding.editTextName.text.toString()
-            val lastName = binding.editTextLastName.text.toString()
-            val email = binding.editTextEmail.text.toString()
-            val password = binding.editTextPassword.text.toString()
-
-            // Solo permitir registro si el lubricentro ha sido verificado
-            verifiedLubricenterId?.let { lubricenterId ->
-                viewModel.registerEmployee(name, lastName, email, password, lubricenterId)
-            }
+            registerEmployee()
         }
 
-        // Observar estado de verificación del lubricentro
+        // Texto "Iniciar sesión"
+        binding.textLogin.setOnClickListener {
+            findNavController().navigateUp()
+        }
+    }
+
+    private fun observeViewModel() {
+        // Observar el estado de verificación del lubricentro
         viewModel.verifyLubricenterState.observe(viewLifecycleOwner) { state ->
             when (state) {
                 is AuthViewModel.VerifyLubricenterState.Loading -> {
                     binding.progressBar.visibility = View.VISIBLE
                     binding.buttonVerifyLubricenter.isEnabled = false
                 }
-                is AuthViewModel.VerifyLubricenterState.Success -> {
+                is AuthViewModel.VerifyLubricenterState.Found -> {
                     binding.progressBar.visibility = View.GONE
                     binding.buttonVerifyLubricenter.isEnabled = true
+                    lubricenterId = state.lubricenter.id
 
-                    // Mostrar los detalles del lubricentro y habilitar registro
+                    // Mostrar los detalles del lubricentro
                     binding.layoutLubricenterDetails.visibility = View.VISIBLE
                     binding.textLubricenterName.text = "Nombre: ${state.lubricenter.fantasyName}"
                     binding.textLubricenterAddress.text = "Dirección: ${state.lubricenter.address}"
                     binding.textLubricenterPhone.text = "Teléfono: ${state.lubricenter.phone}"
-
-                    // Guardar el ID del lubricentro verificado
-                    verifiedLubricenterId = state.lubricenter.id
-
-                    // Habilitar botón de registro
-                    binding.buttonRegister.isEnabled = true
-
-                    Toast.makeText(requireContext(), "Lubricentro verificado correctamente", Toast.LENGTH_SHORT).show()
+                }
+                is AuthViewModel.VerifyLubricenterState.NotFound -> {
+                    binding.progressBar.visibility = View.GONE
+                    binding.buttonVerifyLubricenter.isEnabled = true
+                    Toast.makeText(requireContext(), "No se encontró ningún lubricentro con ese CUIT", Toast.LENGTH_LONG).show()
+                    binding.layoutLubricenterDetails.visibility = View.GONE
                 }
                 is AuthViewModel.VerifyLubricenterState.Error -> {
                     binding.progressBar.visibility = View.GONE
                     binding.buttonVerifyLubricenter.isEnabled = true
-                    binding.layoutLubricenterDetails.visibility = View.GONE
-                    binding.buttonRegister.isEnabled = false
-                    verifiedLubricenterId = null
-
                     Toast.makeText(requireContext(), state.message, Toast.LENGTH_LONG).show()
+                    binding.layoutLubricenterDetails.visibility = View.GONE
                 }
-                null -> { /* No hacer nada */ }
+                else -> {
+                    binding.progressBar.visibility = View.GONE
+                    binding.buttonVerifyLubricenter.isEnabled = true
+                }
             }
         }
 
-        // Observar estado de registro
+        // Observar el estado del registro de empleado
         viewModel.employeeRegisterState.observe(viewLifecycleOwner) { state ->
             when (state) {
                 is AuthViewModel.EmployeeRegisterState.Loading -> {
@@ -105,25 +107,43 @@ class RegisterEmployeeFragment : Fragment() {
                 is AuthViewModel.EmployeeRegisterState.Success -> {
                     binding.progressBar.visibility = View.GONE
                     binding.buttonRegister.isEnabled = true
-                    Toast.makeText(
-                        requireContext(),
-                        "Registro exitoso. ¡Bienvenido a HISMA!",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    Toast.makeText(requireContext(), "Registro exitoso", Toast.LENGTH_LONG).show()
+                    findNavController().navigate(R.id.action_registerEmployeeFragment_to_loginFragment)
                 }
                 is AuthViewModel.EmployeeRegisterState.Error -> {
                     binding.progressBar.visibility = View.GONE
                     binding.buttonRegister.isEnabled = true
-                    Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), state.message, Toast.LENGTH_LONG).show()
                 }
-                null -> { /* No hacer nada */ }
+                else -> {
+                    binding.progressBar.visibility = View.GONE
+                    binding.buttonRegister.isEnabled = true
+                }
             }
         }
+    }
 
-        // Configurar texto para ir a login
-        binding.textLogin.setOnClickListener {
-            viewModel.navigateToLogin()
+    private fun registerEmployee() {
+        // Verificar si el lubricentro ha sido verificado
+        if (lubricenterId.isEmpty()) {
+            Toast.makeText(requireContext(), "Por favor verifique el lubricentro primero", Toast.LENGTH_SHORT).show()
+            return
         }
+
+        // Obtener datos del formulario
+        val name = binding.editTextName.text.toString().trim()
+        val lastName = binding.editTextLastName.text.toString().trim()
+        val email = binding.editTextEmail.text.toString().trim()
+        val password = binding.editTextPassword.text.toString().trim()
+
+        // Validar datos
+        if (name.isEmpty() || lastName.isEmpty() || email.isEmpty() || password.isEmpty()) {
+            Toast.makeText(requireContext(), "Por favor complete todos los campos obligatorios", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // Intentar registrar el empleado
+        viewModel.registerEmployee(name, lastName, email, password, lubricenterId)
     }
 
     override fun onDestroyView() {
