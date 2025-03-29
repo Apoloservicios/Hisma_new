@@ -32,7 +32,7 @@
             android:layout_height="match_parent"
             android:padding="16dp">
 
-            <!-- Sección de Operario y fecha -->
+            <!-- Sección de fecha (sin operario) -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_service_info"
                 android:layout_width="0dp"
@@ -56,13 +56,15 @@
                         android:textSize="18sp"
                         android:textStyle="bold" />
 
+                    <!-- Campo de operario oculto - se usa el usuario actual -->
                     <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/layout_operator_name"
                         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:hint="Operario">
+                        android:hint="Operario"
+                        android:visibility="gone">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/edit_text_operator_name"
@@ -72,7 +74,7 @@
 
                     </com.google.android.material.textfield.TextInputLayout>
 
-                    <!-- Fecha de servicio con botón para fecha actual -->
+                    <!-- Fecha de servicio con botón para fecha actual (ahora con ícono) -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -98,18 +100,18 @@
 
                         <Button
                             android:id="@+id/button_today"
-                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton.Icon"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
                             android:layout_marginStart="8dp"
-                            android:text="Hoy" />
+                            android:contentDescription="Seleccionar hoy"
+                            app:icon="@drawable/ic_calendar_today" />
 
                     </LinearLayout>
-
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Sección de vehículo -->
+            <!-- Sección de vehículo (agregado tipo de vehículo) -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_vehicle"
                 android:layout_width="0dp"
@@ -165,6 +167,28 @@
                             android:inputType="phone" />
 
                     </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Tipo de Vehículo (NUEVO) -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Tipo de Vehículo:"
+                            android:layout_gravity="center_vertical"
+                            android:layout_marginEnd="16dp"/>
+
+                        <Spinner
+                            android:id="@+id/spinner_vehicle_type"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:minHeight="48dp" />
+                    </LinearLayout>
 
                     <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/layout_vehicle_plate"
@@ -231,7 +255,6 @@
                             android:maxLength="4" />
 
                     </com.google.android.material.textfield.TextInputLayout>
-
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -319,11 +342,10 @@
                             android:text="6" />
 
                     </com.google.android.material.textfield.TextInputLayout>
-
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Sección de Aceite -->
+            <!-- Sección de Aceite (modificada para que algunos campos ocupen la mitad del ancho) -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_oil"
                 android:layout_width="0dp"
@@ -348,22 +370,7 @@
                         android:textSize="18sp"
                         android:textStyle="bold" />
 
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:id="@+id/layout_oil_brand"
-                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:hint="Marca de Aceite">
-
-                        <AutoCompleteTextView
-                            android:id="@+id/dropdown_oil_brand"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="text" />
-
-                    </com.google.android.material.textfield.TextInputLayout>
-
+                    <!-- Primera fila: Marca y Tipo de aceite lado a lado (mitad de ancho) -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -371,11 +378,28 @@
                         android:orientation="horizontal">
 
                         <com.google.android.material.textfield.TextInputLayout
-                            android:id="@+id/layout_oil_type"
+                            android:id="@+id/layout_oil_brand"
                             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_marginEnd="8dp"
+                            android:layout_weight="1"
+                            android:hint="Marca de Aceite">
+
+                            <AutoCompleteTextView
+                                android:id="@+id/dropdown_oil_brand"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="text" />
+
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/layout_oil_type"
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
                             android:layout_weight="1"
                             android:hint="Tipo">
 
@@ -386,13 +410,21 @@
                                 android:inputType="none" />
 
                         </com.google.android.material.textfield.TextInputLayout>
+                    </LinearLayout>
+
+                    <!-- Segunda fila: Viscosidad y Cantidad lado a lado (mitad de ancho) -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="horizontal">
 
                         <com.google.android.material.textfield.TextInputLayout
                             android:id="@+id/layout_oil_viscosity"
                             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
+                            android:layout_marginEnd="8dp"
                             android:layout_weight="1"
                             android:hint="Viscosidad (SAE)">
 
@@ -403,28 +435,28 @@
                                 android:inputType="none" />
 
                         </com.google.android.material.textfield.TextInputLayout>
-                    </LinearLayout>
 
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:id="@+id/layout_oil_quantity"
-                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:hint="Cantidad (litros)">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/edit_text_oil_quantity"
-                            android:layout_width="match_parent"
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/layout_oil_quantity"
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                            android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:inputType="numberDecimal" />
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:hint="Cantidad (litros)">
 
-                    </com.google.android.material.textfield.TextInputLayout>
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/edit_text_oil_quantity"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="numberDecimal" />
 
+                        </com.google.android.material.textfield.TextInputLayout>
+                    </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Sección de Filtros -->
+            <!-- Sección de Filtros (modificada para que las notas estén a la derecha del checkbox) -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_filters"
                 android:layout_width="0dp"
@@ -449,45 +481,29 @@
                         android:textSize="18sp"
                         android:textStyle="bold" />
 
-                    <!-- Filtro de Aceite -->
-                    <CheckBox
-                        android:id="@+id/checkbox_oil_filter"
+                    <!-- Filtro de Aceite (modificado, sin marca) -->
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="Filtro de Aceite" />
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
 
-                    <LinearLayout
-                        android:id="@+id/layout_oil_filter_details"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="32dp"
-                        android:orientation="vertical"
-                        android:visibility="gone">
-
-                        <com.google.android.material.textfield.TextInputLayout
-                            android:id="@+id/layout_oil_filter_brand"
-                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                            android:layout_width="match_parent"
+                        <CheckBox
+                            android:id="@+id/checkbox_oil_filter"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:hint="Marca">
-
-                            <AutoCompleteTextView
-                                android:id="@+id/dropdown_oil_filter_brand"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:inputType="text" />
-
-                        </com.google.android.material.textfield.TextInputLayout>
+                            android:text="Filtro de Aceite" />
 
                         <com.google.android.material.textfield.TextInputLayout
                             android:id="@+id/layout_oil_filter_notes"
                             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                            android:layout_width="match_parent"
+                            android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:hint="Notas">
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:hint="Notas"
+                            android:visibility="gone">
 
                             <AutoCompleteTextView
                                 android:id="@+id/dropdown_oil_filter_notes"
@@ -499,87 +515,107 @@
                     </LinearLayout>
 
                     <!-- Filtro de Aire -->
-                    <CheckBox
-                        android:id="@+id/checkbox_air_filter"
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="Filtro de Aire" />
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
 
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:id="@+id/layout_air_filter_notes"
-                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="32dp"
-                        android:layout_marginTop="4dp"
-                        android:hint="Notas"
-                        android:visibility="gone">
-
-                        <AutoCompleteTextView
-                            android:id="@+id/dropdown_air_filter_notes"
-                            android:layout_width="match_parent"
+                        <CheckBox
+                            android:id="@+id/checkbox_air_filter"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:inputType="text" />
+                            android:text="Filtro de Aire" />
 
-                    </com.google.android.material.textfield.TextInputLayout>
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/layout_air_filter_notes"
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:hint="Notas"
+                            android:visibility="gone">
+
+                            <AutoCompleteTextView
+                                android:id="@+id/dropdown_air_filter_notes"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="text" />
+
+                        </com.google.android.material.textfield.TextInputLayout>
+                    </LinearLayout>
 
                     <!-- Filtro de Habitáculo -->
-                    <CheckBox
-                        android:id="@+id/checkbox_cabin_filter"
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="Filtro de Habitáculo" />
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
 
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:id="@+id/layout_cabin_filter_notes"
-                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="32dp"
-                        android:layout_marginTop="4dp"
-                        android:hint="Notas"
-                        android:visibility="gone">
-
-                        <AutoCompleteTextView
-                            android:id="@+id/dropdown_cabin_filter_notes"
-                            android:layout_width="match_parent"
+                        <CheckBox
+                            android:id="@+id/checkbox_cabin_filter"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:inputType="text" />
+                            android:text="Filtro de Habitáculo" />
 
-                    </com.google.android.material.textfield.TextInputLayout>
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/layout_cabin_filter_notes"
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:hint="Notas"
+                            android:visibility="gone">
+
+                            <AutoCompleteTextView
+                                android:id="@+id/dropdown_cabin_filter_notes"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="text" />
+
+                        </com.google.android.material.textfield.TextInputLayout>
+                    </LinearLayout>
 
                     <!-- Filtro de Combustible -->
-                    <CheckBox
-                        android:id="@+id/checkbox_fuel_filter"
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="Filtro de Combustible" />
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
 
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:id="@+id/layout_fuel_filter_notes"
-                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="32dp"
-                        android:layout_marginTop="4dp"
-                        android:hint="Notas"
-                        android:visibility="gone">
-
-                        <AutoCompleteTextView
-                            android:id="@+id/dropdown_fuel_filter_notes"
-                            android:layout_width="match_parent"
+                        <CheckBox
+                            android:id="@+id/checkbox_fuel_filter"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:inputType="text" />
+                            android:text="Filtro de Combustible" />
 
-                    </com.google.android.material.textfield.TextInputLayout>
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/layout_fuel_filter_notes"
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:hint="Notas"
+                            android:visibility="gone">
 
+                            <AutoCompleteTextView
+                                android:id="@+id/dropdown_fuel_filter_notes"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="text" />
+
+                        </com.google.android.material.textfield.TextInputLayout>
+                    </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Sección de Extras -->
+            <!-- Sección de Extras (modificada) -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_extras"
                 android:layout_width="0dp"
@@ -605,99 +641,31 @@
                         android:textStyle="bold" />
 
                     <!-- Refrigerante -->
-                    <CheckBox
-                        android:id="@+id/checkbox_coolant"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="Refrigerante" />
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:id="@+id/layout_coolant_notes"
-                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="32dp"
-                        android:layout_marginTop="4dp"
-                        android:hint="Notas"
-                        android:visibility="gone">
-
-                        <AutoCompleteTextView
-                            android:id="@+id/dropdown_coolant_notes"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="text" />
-
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <!-- Engrase -->
-                    <CheckBox
-                        android:id="@+id/checkbox_grease"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="Engrase" />
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:id="@+id/layout_grease_notes"
-                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="32dp"
-                        android:layout_marginTop="4dp"
-                        android:hint="Notas"
-                        android:visibility="gone">
-
-                        <AutoCompleteTextView
-                            android:id="@+id/dropdown_grease_notes"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="text" />
-
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <!-- Aditivo -->
-                    <CheckBox
-                        android:id="@+id/checkbox_additive"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="Aditivo" />
-
                     <LinearLayout
-                        android:id="@+id/layout_additive_details"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="32dp"
-                        android:orientation="vertical"
-                        android:visibility="gone">
+                        android:layout_marginTop="8dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <CheckBox
+                            android:id="@+id/checkbox_coolant"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Refrigerante" />
 
                         <com.google.android.material.textfield.TextInputLayout
-                            android:id="@+id/layout_additive_type"
+                            android:id="@+id/layout_coolant_notes"
                             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                            android:layout_width="match_parent"
+                            android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:hint="Tipo">
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:hint="Notas"
+                            android:visibility="gone">
 
                             <AutoCompleteTextView
-                                android:id="@+id/dropdown_additive_type"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:inputType="text" />
-
-                        </com.google.android.material.textfield.TextInputLayout>
-
-                        <com.google.android.material.textfield.TextInputLayout
-                            android:id="@+id/layout_additive_notes"
-                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:hint="Notas">
-
-                            <AutoCompleteTextView
-                                android:id="@+id/dropdown_additive_notes"
+                                android:id="@+id/dropdown_coolant_notes"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:inputType="text" />
@@ -705,57 +673,163 @@
                         </com.google.android.material.textfield.TextInputLayout>
                     </LinearLayout>
 
-                    <!-- Caja -->
-                    <CheckBox
-                        android:id="@+id/checkbox_gearbox"
+                    <!-- Engrase -->
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="Revisión de Caja" />
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
 
+                        <CheckBox
+                            android:id="@+id/checkbox_grease"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Engrase" />
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/layout_grease_notes"
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:hint="Notas"
+                            android:visibility="gone">
+
+                            <AutoCompleteTextView
+                                android:id="@+id/dropdown_grease_notes"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="text" />
+
+                        </com.google.android.material.textfield.TextInputLayout>
+                    </LinearLayout>
+
+                    <!-- Aditivo (modificado - sin campo de marca) -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <CheckBox
+                            android:id="@+id/checkbox_additive"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Aditivo" />
+
+                        <LinearLayout
+                            android:id="@+id/layout_additive_details"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="horizontal"
+                            android:visibility="gone">
+
+                            <com.google.android.material.textfield.TextInputLayout
+                                android:id="@+id/layout_additive_type"
+                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:hint="Tipo">
+
+                                <AutoCompleteTextView
+                                    android:id="@+id/dropdown_additive_type"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:inputType="text" />
+
+                            </com.google.android.material.textfield.TextInputLayout>
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <!-- Notas aditivo (en nueva línea) -->
                     <com.google.android.material.textfield.TextInputLayout
-                        android:id="@+id/layout_gearbox_notes"
+                        android:id="@+id/layout_additive_notes"
                         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="32dp"
                         android:layout_marginTop="4dp"
-                        android:hint="Notas"
+                        android:hint="Notas de aditivo"
                         android:visibility="gone">
 
                         <AutoCompleteTextView
-                            android:id="@+id/dropdown_gearbox_notes"
+                            android:id="@+id/dropdown_additive_notes"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:inputType="text" />
 
                     </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Caja -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <CheckBox
+                            android:id="@+id/checkbox_gearbox"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Revisión de Caja" />
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/layout_gearbox_notes"
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:hint="Notas"
+                            android:visibility="gone">
+
+                            <AutoCompleteTextView
+                                android:id="@+id/dropdown_gearbox_notes"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="text" />
+
+                        </com.google.android.material.textfield.TextInputLayout>
+                    </LinearLayout>
 
                     <!-- Diferencial -->
-                    <CheckBox
-                        android:id="@+id/checkbox_differential"
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="Revisión de Diferencial" />
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
 
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:id="@+id/layout_differential_notes"
-                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="32dp"
-                        android:layout_marginTop="4dp"
-                        android:hint="Notas"
-                        android:visibility="gone">
-
-                        <AutoCompleteTextView
-                            android:id="@+id/dropdown_differential_notes"
-                            android:layout_width="match_parent"
+                        <CheckBox
+                            android:id="@+id/checkbox_differential"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:inputType="text" />
+                            android:text="Revisión de Diferencial" />
 
-                    </com.google.android.material.textfield.TextInputLayout>
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/layout_differential_notes"
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:hint="Notas"
+                            android:visibility="gone">
+
+                            <AutoCompleteTextView
+                                android:id="@+id/dropdown_differential_notes"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="text" />
+
+                        </com.google.android.material.textfield.TextInputLayout>
+                    </LinearLayout>
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

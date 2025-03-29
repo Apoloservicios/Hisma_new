@@ -1,35 +1,45 @@
 package com.hisma.app.ui.oilchange
 
 import android.app.DatePickerDialog
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import android.text.Editable
-import android.text.TextWatcher
 import android.view.MenuItem
 import android.view.View
+import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
-import android.widget.CheckBox
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.FileProvider
+import androidx.lifecycle.lifecycleScope
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.hisma.app.R
 import com.hisma.app.databinding.ActivityRegisterOilChangeBinding
-import com.hisma.app.util.AutoCompleteDataProvider
+import com.hisma.app.domain.model.OilChange
+import com.hisma.app.domain.model.User
+import com.hisma.app.domain.model.UserRole
+import com.hisma.app.domain.model.VehicleType
 import dagger.hilt.android.AndroidEntryPoint
-import java.io.File
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class RegisterOilChangeActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityRegisterOilChangeBinding
-    private val viewModel: OilChangeViewModel by viewModels()
+    private val viewModel: RegisterOilChangeViewModel by viewModels()
+
+    @Inject
+    lateinit var firebaseAuth: FirebaseAuth
+
+    @Inject
+    lateinit var firestore: FirebaseFirestore
+
+    private var currentUser: User? = null
     private val calendar = Calendar.getInstance()
     private val dateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
 
@@ -38,91 +48,138 @@ class RegisterOilChangeActivity : AppCompatActivity() {
         binding = ActivityRegisterOilChangeBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Configurar Toolbar
-        setSupportActionBar(binding.toolbar)
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-
-        // Configurar fecha inicial
-        updateDateText()
-
-        // Configurar escuchas para campos
-        setupListeners()
-
-        // Configurar autocompletado
-        setupAutoComplete()
-
-        // Inicializar operador con el usuario actual
-        initUserData()
-
-        // Observar resultados de guardado
-        observeSaveState()
+        setupToolbar()
+        loadCurrentUser()
+        setupDatePicker()
+        setupVehicleTypeSpinner()
+        setupDropdowns()
+        setupCheckboxListeners()
+        setupSaveButton()
     }
 
-    private fun setupListeners() {
-        // Listener para DatePicker
+    private fun setupToolbar() {
+        setSupportActionBar(binding.toolbar)
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+    }
+
+    private fun loadCurrentUser() {
+        val userId = firebaseAuth.currentUser?.uid
+        if (userId != null) {
+            firestore.collection("users").document(userId)
+                .get()
+                .addOnSuccessListener { document ->
+                    if (document != null && document.exists()) {
+                        val name = document.getString("name") ?: ""
+                        val lastName = document.getString("lastName") ?: ""
+                        val email = document.getString("email") ?: ""
+                        val roleStr = document.getString("role") ?: "EMPLOYEE"
+                        val role = try {
+                            UserRole.valueOf(roleStr)
+                        } catch (e: Exception) {
+                            UserRole.EMPLOYEE
+                        }
+                        val lubricenterId = document.getString("lubricenterId") ?: ""
+
+                        currentUser = User(
+                            id = userId,
+                            name = name,
+                            lastName = lastName,
+                            email = email,
+                            role = role,
+                            lubricenterId = lubricenterId
+                        )
+
+                        // No mostramos el campo de operario, se usa automáticamente el usuario actual
+                        binding.layoutOperatorName.visibility = View.GONE
+                    }
+                }
+        }
+    }
+
+    private fun setupDatePicker() {
+        // Configurar la fecha actual
+        updateDateDisplay()
+
+        // DatePicker al hacer clic en el campo de fecha
         binding.editTextServiceDate.setOnClickListener {
             showDatePicker()
         }
 
-        // Botón para fecha actual
+        // Botón de "Hoy" con ícono
+        binding.buttonToday.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_calendar_today, 0, 0, 0)
+        binding.buttonToday.text = ""  // Quitar texto y dejar solo el ícono
         binding.buttonToday.setOnClickListener {
             calendar.time = Date()
-            updateDateText()
+            updateDateDisplay()
         }
+    }
 
-        // Calcular automáticamente el próximo cambio (10000 km más)
-        binding.editTextCurrentKm.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) {
-                try {
-                    val currentKm = binding.editTextCurrentKm.text.toString().toInt()
-                    // Por defecto, próximo cambio a 10000 km
-                    val nextChangeKm = currentKm + 10000
-                    binding.editTextNextChangeKm.setText(nextChangeKm.toString())
-                } catch (e: Exception) {
-                    // No hacer nada si el valor no es un número válido
-                }
-            }
-        }
+    private fun setupVehicleTypeSpinner() {
+        val vehicleTypes = arrayOf("Auto", "Moto", "Camión")
+        val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, vehicleTypes)
+        binding.spinnerVehicleType.adapter = adapter
+    }
 
-        // Validador de patente
-        binding.editTextVehiclePlate.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+    private fun setupDropdowns() {
+        // Configurar dropdowns de marcas de vehículos
+        setupDropdown(
+            binding.dropdownVehicleBrand,
+            arrayOf("Ford", "Chevrolet", "Toyota", "Volkswagen", "Fiat", "Renault", "Peugeot", "Honda", "Hyundai", "Otros")
+        )
 
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        // Configurar dropdowns de aceites (reducido a mitad de ancho)
+        setupDropdown(
+            binding.dropdownOilBrand,
+            arrayOf("Mobil", "YPF", "Shell", "Castrol", "Total", "Valvoline", "Otros")
+        )
 
-            override fun afterTextChanged(s: Editable?) {
-                val plate = s.toString()
-                if (plate.isNotEmpty() && !LicensePlateValidator.isValid(plate)) {
-                    binding.layoutVehiclePlate.error = "Formato inválido. Use: AB123CD, ABC123 o A123BCD"
-                } else {
-                    binding.layoutVehiclePlate.error = null
-                    // Formatear la patente si es válida
-                    if (plate.isNotEmpty() && LicensePlateValidator.isValid(plate)) {
-                        val formattedPlate = LicensePlateValidator.formatPlate(plate)
-                        if (formattedPlate != plate) {
-                            binding.editTextVehiclePlate.setText(formattedPlate)
-                            binding.editTextVehiclePlate.setSelection(formattedPlate.length)
-                        }
-                    }
-                }
-            }
-        })
+        setupDropdown(
+            binding.dropdownOilType,
+            arrayOf("Mineral", "Sintético", "Semisintético")
+        )
 
-        // Listeners para checkboxes
-        setupCheckboxListeners()
+        setupDropdown(
+            binding.dropdownOilViscosity,
+            arrayOf("5W30", "10W40", "15W40", "20W50", "5W40", "0W20")
+        )
 
-        // Botón de registro
-        binding.buttonRegister.setOnClickListener {
-            if (validateForm()) {
-                saveOilChange()
-            }
-        }
+        // Configurar otros dropdowns para filtros
+        setupDropdown(
+            binding.dropdownOilFilterNotes,
+            arrayOf("Original", "Alternativo", "Primera marca")
+        )
+
+        setupDropdown(
+            binding.dropdownAirFilterNotes,
+            arrayOf("Original", "Alternativo", "Limpieza")
+        )
+
+        setupDropdown(
+            binding.dropdownCabinFilterNotes,
+            arrayOf("Original", "Alternativo", "Limpieza")
+        )
+
+        setupDropdown(
+            binding.dropdownFuelFilterNotes,
+            arrayOf("Original", "Alternativo")
+        )
+
+        // Aditivos
+        setupDropdown(
+            binding.dropdownAdditiveType,
+            arrayOf("Limpiador de inyectores", "Limpiador de válvulas", "Antifricción")
+        )
+    }
+
+    private fun setupDropdown(autoCompleteTextView: AutoCompleteTextView, items: Array<String>) {
+        val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, items)
+        autoCompleteTextView.setAdapter(adapter)
     }
 
     private fun setupCheckboxListeners() {
         // Filtro de aceite
         binding.checkboxOilFilter.setOnCheckedChangeListener { _, isChecked ->
-            binding.layoutOilFilterDetails.visibility = if (isChecked) View.VISIBLE else View.GONE
+            binding.layoutOilFilterNotes.visibility = if (isChecked) View.VISIBLE else View.GONE
         }
 
         // Filtro de aire
@@ -153,6 +210,7 @@ class RegisterOilChangeActivity : AppCompatActivity() {
         // Aditivo
         binding.checkboxAdditive.setOnCheckedChangeListener { _, isChecked ->
             binding.layoutAdditiveDetails.visibility = if (isChecked) View.VISIBLE else View.GONE
+            binding.layoutAdditiveNotes.visibility = if (isChecked) View.VISIBLE else View.GONE
         }
 
         // Caja
@@ -166,191 +224,158 @@ class RegisterOilChangeActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupAutoComplete() {
-        // Marcas de vehículos
-        setupAutoCompleteDropdown(
-            binding.dropdownVehicleBrand,
-            AutoCompleteDataProvider.ALL_VEHICLE_BRANDS
-        )
-
-        // Marcas de aceite
-        setupAutoCompleteDropdown(
-            binding.dropdownOilBrand,
-            AutoCompleteDataProvider.OIL_BRANDS
-        )
-
-        // Tipos de aceite
-        setupAutoCompleteDropdown(
-            binding.dropdownOilType,
-            AutoCompleteDataProvider.OIL_TYPES
-        )
-
-        // Viscosidades
-        setupAutoCompleteDropdown(
-            binding.dropdownOilViscosity,
-            AutoCompleteDataProvider.OIL_VISCOSITIES
-        )
-
-        // Marcas de filtros
-        setupAutoCompleteDropdown(
-            binding.dropdownOilFilterBrand,
-            AutoCompleteDataProvider.FILTER_BRANDS
-        )
-
-        // Notas comunes para filtros y extras
-        val notesAdapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_dropdown_item_1line,
-            AutoCompleteDataProvider.COMMON_NOTES
-        )
-
-        // Aplicar a todos los campos de notas
-        setupAutoCompleteDropdown(binding.dropdownOilFilterNotes, AutoCompleteDataProvider.COMMON_NOTES)
-        setupAutoCompleteDropdown(binding.dropdownAirFilterNotes, AutoCompleteDataProvider.COMMON_NOTES)
-        setupAutoCompleteDropdown(binding.dropdownCabinFilterNotes, AutoCompleteDataProvider.COMMON_NOTES)
-        setupAutoCompleteDropdown(binding.dropdownFuelFilterNotes, AutoCompleteDataProvider.COMMON_NOTES)
-        setupAutoCompleteDropdown(binding.dropdownCoolantNotes, AutoCompleteDataProvider.COMMON_NOTES)
-        setupAutoCompleteDropdown(binding.dropdownGreaseNotes, AutoCompleteDataProvider.COMMON_NOTES)
-        setupAutoCompleteDropdown(binding.dropdownAdditiveNotes, AutoCompleteDataProvider.COMMON_NOTES)
-        setupAutoCompleteDropdown(binding.dropdownGearboxNotes, AutoCompleteDataProvider.COMMON_NOTES)
-        setupAutoCompleteDropdown(binding.dropdownDifferentialNotes, AutoCompleteDataProvider.COMMON_NOTES)
-
-        // Tipo de aditivo
-        setupAutoCompleteDropdown(
-            binding.dropdownAdditiveType,
-            AutoCompleteDataProvider.ADDITIVE_TYPES
-        )
-    }
-
-    private fun <T> setupAutoCompleteDropdown(
-        autoCompleteTextView: AutoCompleteTextView,
-        items: List<T>
-    ) {
-        val adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_dropdown_item_1line,
-            items
-        )
-        autoCompleteTextView.setAdapter(adapter)
-    }
-
-    private fun initUserData() {
-        // En una implementación real, obtener el nombre del usuario actual
-        viewModel.getCurrentUserName()?.let { userName ->
-            binding.editTextOperatorName.setText(userName)
+    private fun setupSaveButton() {
+        binding.buttonRegister.setOnClickListener {
+            if (validateForm()) {
+                saveOilChange()
+            }
         }
-    }
-
-    private fun showDatePicker() {
-        DatePickerDialog(
-            this,
-            { _, year, month, day ->
-                calendar.set(Calendar.YEAR, year)
-                calendar.set(Calendar.MONTH, month)
-                calendar.set(Calendar.DAY_OF_MONTH, day)
-                updateDateText()
-            },
-            calendar.get(Calendar.YEAR),
-            calendar.get(Calendar.MONTH),
-            calendar.get(Calendar.DAY_OF_MONTH)
-        ).show()
-    }
-
-    private fun updateDateText() {
-        binding.editTextServiceDate.setText(dateFormatter.format(calendar.time))
     }
 
     private fun validateForm(): Boolean {
         var isValid = true
 
-        // Validación de campos obligatorios
-        isValid = validateField(binding.editTextOperatorName, binding.layoutOperatorName, "Campo obligatorio") && isValid
-        isValid = validateField(binding.editTextServiceDate, binding.layoutServiceDate, "Campo obligatorio") && isValid
-        isValid = validateField(binding.editTextCustomerName, binding.layoutCustomerName, "Campo obligatorio") && isValid
-
-        // Validar patente
-        val plate = binding.editTextVehiclePlate.text.toString()
-        if (plate.isBlank()) {
-            binding.layoutVehiclePlate.error = "Campo obligatorio"
+        // Validar campos obligatorios
+        if (binding.editTextCustomerName.text.toString().trim().isEmpty()) {
+            binding.editTextCustomerName.error = "Campo obligatorio"
             isValid = false
-        } else if (!LicensePlateValidator.isValid(plate)) {
-            binding.layoutVehiclePlate.error = "Formato inválido. Use: AB123CD, ABC123 o A123BCD"
-            isValid = false
-        } else {
-            binding.layoutVehiclePlate.error = null
         }
 
-        // Validar kilometraje
-        isValid = validateField(binding.editTextCurrentKm, binding.layoutCurrentKm, "Campo obligatorio") && isValid
-        isValid = validateField(binding.editTextNextChangeKm, binding.layoutNextChangeKm, "Campo obligatorio") && isValid
-
-        // Validar período
-        isValid = validateField(binding.editTextPeriodMonths, binding.layoutPeriodMonths, "Campo obligatorio") && isValid
-
-        // Validar aceite
-        isValid = validateField(binding.dropdownOilBrand, binding.layoutOilBrand, "Seleccione una marca") && isValid
-        isValid = validateField(binding.dropdownOilType, binding.layoutOilType, "Seleccione un tipo") && isValid
-        isValid = validateField(binding.dropdownOilViscosity, binding.layoutOilViscosity, "Seleccione viscosidad") && isValid
-        isValid = validateField(binding.editTextOilQuantity, binding.layoutOilQuantity, "Ingrese cantidad") && isValid
-
-        // Validar campos específicos cuando están habilitados
-        if (binding.checkboxOilFilter.isChecked) {
-            isValid = validateField(binding.dropdownOilFilterBrand, binding.layoutOilFilterBrand, "Seleccione marca") && isValid
+        if (binding.editTextVehiclePlate.text.toString().trim().isEmpty()) {
+            binding.editTextVehiclePlate.error = "Campo obligatorio"
+            isValid = false
         }
 
-        // Validar aditivo si está seleccionado
-        if (binding.checkboxAdditive.isChecked) {
-            isValid = validateField(binding.dropdownAdditiveType, binding.layoutAdditiveType, "Seleccione tipo") && isValid
+        if (binding.editTextCurrentKm.text.toString().trim().isEmpty()) {
+            binding.editTextCurrentKm.error = "Campo obligatorio"
+            isValid = false
+        }
+
+        if (binding.editTextNextChangeKm.text.toString().trim().isEmpty()) {
+            binding.editTextNextChangeKm.error = "Campo obligatorio"
+            isValid = false
+        }
+
+        if (binding.dropdownOilBrand.text.toString().trim().isEmpty()) {
+            binding.dropdownOilBrand.error = "Campo obligatorio"
+            isValid = false
+        }
+
+        if (binding.dropdownOilType.text.toString().trim().isEmpty()) {
+            binding.dropdownOilType.error = "Campo obligatorio"
+            isValid = false
+        }
+
+        if (binding.dropdownOilViscosity.text.toString().trim().isEmpty()) {
+            binding.dropdownOilViscosity.error = "Campo obligatorio"
+            isValid = false
+        }
+
+        if (binding.editTextOilQuantity.text.toString().trim().isEmpty()) {
+            binding.editTextOilQuantity.error = "Campo obligatorio"
+            isValid = false
         }
 
         return isValid
     }
 
-    /**
-     * Método auxiliar para validar campos de texto
-     */
-    private fun validateField(view: View, layout: com.google.android.material.textfield.TextInputLayout, errorMsg: String): Boolean {
-        val text = when (view) {
-            is com.google.android.material.textfield.TextInputEditText -> view.text.toString()
-            is AutoCompleteTextView -> view.text.toString()
-            else -> ""
-        }
-
-        if (text.isBlank()) {
-            layout.error = errorMsg
-            return false
-        } else {
-            layout.error = null
-            return true
-        }
-    }
-
     private fun saveOilChange() {
-        // Mostrar barra de progreso
         binding.progressBar.visibility = View.VISIBLE
 
-        // Recolectar datos del formulario
-        val oilChange = collectFormData()
+        val oilChange = createOilChangeData()
+        val oilChangeMap = oilChangeToMap(oilChange)
 
-        // Guardar en el ViewModel
-        viewModel.saveOilChangeRecord(oilChange)
+        // Guardar en Firestore
+        firestore.collection("lubricenters")
+            .document(currentUser?.lubricenterId ?: "")
+            .collection("oilChanges")
+            .add(oilChangeMap)
+            .addOnSuccessListener { documentReference ->
+                binding.progressBar.visibility = View.GONE
+                Toast.makeText(this, "Registro guardado correctamente", Toast.LENGTH_SHORT).show()
+                finish()
+            }
+            .addOnFailureListener { e ->
+                binding.progressBar.visibility = View.GONE
+                Toast.makeText(this, "Error al guardar: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
     }
 
-    private fun collectFormData(): OilChangeData {
-        return OilChangeData(
-            // Datos del servicio
-            operatorName = binding.editTextOperatorName.text.toString(),
-            serviceDate = calendar.timeInMillis,
+    private fun oilChangeToMap(oilChange: OilChange): Map<String, Any> {
+        return mapOf(
+            "operatorId" to oilChange.operatorId,
+            "operatorName" to oilChange.operatorName,
+            "serviceDate" to oilChange.serviceDate,
+            "createdAt" to oilChange.createdAt,
 
-            // Datos del cliente/vehículo
+            "customerName" to oilChange.customerName,
+            "customerPhone" to oilChange.customerPhone,
+            "vehicleType" to oilChange.vehicleType,
+            "vehiclePlate" to oilChange.vehiclePlate,
+            "vehicleBrand" to oilChange.vehicleBrand,
+            "vehicleModel" to oilChange.vehicleModel,
+            "vehicleYear" to oilChange.vehicleYear,
+
+            "currentKm" to oilChange.currentKm,
+            "nextChangeKm" to oilChange.nextChangeKm,
+            "periodMonths" to oilChange.periodMonths,
+
+            "oilBrand" to oilChange.oilBrand,
+            "oilType" to oilChange.oilType,
+            "oilViscosity" to oilChange.oilViscosity,
+            "oilQuantity" to oilChange.oilQuantity,
+
+            "oilFilter" to oilChange.oilFilter,
+            "oilFilterNotes" to oilChange.oilFilterNotes,
+
+            "airFilter" to oilChange.airFilter,
+            "airFilterNotes" to oilChange.airFilterNotes,
+
+            "cabinFilter" to oilChange.cabinFilter,
+            "cabinFilterNotes" to oilChange.cabinFilterNotes,
+
+            "fuelFilter" to oilChange.fuelFilter,
+            "fuelFilterNotes" to oilChange.fuelFilterNotes,
+
+            "coolant" to oilChange.coolant,
+            "coolantNotes" to oilChange.coolantNotes,
+
+            "grease" to oilChange.grease,
+            "greaseNotes" to oilChange.greaseNotes,
+
+            "additive" to oilChange.additive,
+            "additiveType" to oilChange.additiveType,
+            "additiveNotes" to oilChange.additiveNotes,
+
+            "gearbox" to oilChange.gearbox,
+            "gearboxNotes" to oilChange.gearboxNotes,
+
+            "differential" to oilChange.differential,
+            "differentialNotes" to oilChange.differentialNotes,
+
+            "observations" to oilChange.observations
+        )
+    }
+
+    private fun createOilChangeData(): OilChange {
+        val serviceDate = calendar.time
+
+        return OilChange(
+            operatorId = currentUser?.id ?: "",
+            operatorName = "${currentUser?.name ?: ""} ${currentUser?.lastName ?: ""}",
+            serviceDate = serviceDate,
+            createdAt = Date(),
+
+            // Cliente y vehículo
             customerName = binding.editTextCustomerName.text.toString(),
             customerPhone = binding.editTextCustomerPhone.text.toString(),
+            vehicleType = binding.spinnerVehicleType.selectedItem.toString(),
+            vehiclePlate = binding.editTextVehiclePlate.text.toString().toUpperCase(Locale.getDefault()),
             vehicleBrand = binding.dropdownVehicleBrand.text.toString(),
             vehicleModel = binding.editTextVehicleModel.text.toString(),
-            vehiclePlate = binding.editTextVehiclePlate.text.toString(),
-            vehicleYear = binding.editTextVehicleYear.text.toString().toIntOrNull() ?: 0,
+            vehicleYear = binding.editTextVehicleYear.text.toString(),
 
-            // Kilometraje y periodicidad
+            // Kilometraje
             currentKm = binding.editTextCurrentKm.text.toString().toIntOrNull() ?: 0,
             nextChangeKm = binding.editTextNextChangeKm.text.toString().toIntOrNull() ?: 0,
             periodMonths = binding.editTextPeriodMonths.text.toString().toIntOrNull() ?: 6,
@@ -362,63 +387,58 @@ class RegisterOilChangeActivity : AppCompatActivity() {
             oilQuantity = binding.editTextOilQuantity.text.toString().toFloatOrNull() ?: 0f,
 
             // Filtros
-            oilFilterChanged = binding.checkboxOilFilter.isChecked,
-            oilFilterBrand = if (binding.checkboxOilFilter.isChecked) binding.dropdownOilFilterBrand.text.toString() else "",
-            oilFilterNotes = if (binding.checkboxOilFilter.isChecked) binding.dropdownOilFilterNotes.text.toString() else "N/A",
+            oilFilter = binding.checkboxOilFilter.isChecked,
+            oilFilterNotes = if (binding.checkboxOilFilter.isChecked) binding.dropdownOilFilterNotes.text.toString() else "",
 
-            airFilterChanged = binding.checkboxAirFilter.isChecked,
-            airFilterNotes = if (binding.checkboxAirFilter.isChecked) binding.dropdownAirFilterNotes.text.toString() else "N/A",
+            airFilter = binding.checkboxAirFilter.isChecked,
+            airFilterNotes = if (binding.checkboxAirFilter.isChecked) binding.dropdownAirFilterNotes.text.toString() else "",
 
-            cabinFilterChanged = binding.checkboxCabinFilter.isChecked,
-            cabinFilterNotes = if (binding.checkboxCabinFilter.isChecked) binding.dropdownCabinFilterNotes.text.toString() else "N/A",
+            cabinFilter = binding.checkboxCabinFilter.isChecked,
+            cabinFilterNotes = if (binding.checkboxCabinFilter.isChecked) binding.dropdownCabinFilterNotes.text.toString() else "",
 
-            fuelFilterChanged = binding.checkboxFuelFilter.isChecked,
-            fuelFilterNotes = if (binding.checkboxFuelFilter.isChecked) binding.dropdownFuelFilterNotes.text.toString() else "N/A",
+            fuelFilter = binding.checkboxFuelFilter.isChecked,
+            fuelFilterNotes = if (binding.checkboxFuelFilter.isChecked) binding.dropdownFuelFilterNotes.text.toString() else "",
 
             // Extras
-            coolantAdded = binding.checkboxCoolant.isChecked,
-            coolantNotes = if (binding.checkboxCoolant.isChecked) binding.dropdownCoolantNotes.text.toString() else "N/A",
+            coolant = binding.checkboxCoolant.isChecked,
+            coolantNotes = if (binding.checkboxCoolant.isChecked) binding.dropdownCoolantNotes.text.toString() else "",
 
-            greaseAdded = binding.checkboxGrease.isChecked,
-            greaseNotes = if (binding.checkboxGrease.isChecked) binding.dropdownGreaseNotes.text.toString() else "N/A",
+            grease = binding.checkboxGrease.isChecked,
+            greaseNotes = if (binding.checkboxGrease.isChecked) binding.dropdownGreaseNotes.text.toString() else "",
 
-            additiveAdded = binding.checkboxAdditive.isChecked,
+            additive = binding.checkboxAdditive.isChecked,
             additiveType = if (binding.checkboxAdditive.isChecked) binding.dropdownAdditiveType.text.toString() else "",
-            additiveNotes = if (binding.checkboxAdditive.isChecked) binding.dropdownAdditiveNotes.text.toString() else "N/A",
+            additiveNotes = if (binding.checkboxAdditive.isChecked) binding.dropdownAdditiveNotes.text.toString() else "",
 
-            gearboxChecked = binding.checkboxGearbox.isChecked,
-            gearboxNotes = if (binding.checkboxGearbox.isChecked) binding.dropdownGearboxNotes.text.toString() else "N/A",
+            gearbox = binding.checkboxGearbox.isChecked,
+            gearboxNotes = if (binding.checkboxGearbox.isChecked) binding.dropdownGearboxNotes.text.toString() else "",
 
-            differentialChecked = binding.checkboxDifferential.isChecked,
-            differentialNotes = if (binding.checkboxDifferential.isChecked) binding.dropdownDifferentialNotes.text.toString() else "N/A",
+            differential = binding.checkboxDifferential.isChecked,
+            differentialNotes = if (binding.checkboxDifferential.isChecked) binding.dropdownDifferentialNotes.text.toString() else "",
 
             // Observaciones
             observations = binding.editTextObservations.text.toString()
         )
     }
 
-    private fun observeSaveState() {
-        viewModel.saveState.observe(this) { state ->
-            when (state) {
-                is OilChangeViewModel.SaveState.Loading -> {
-                    binding.progressBar.visibility = View.VISIBLE
-                }
-                is OilChangeViewModel.SaveState.Success -> {
-                    binding.progressBar.visibility = View.GONE
-                    Toast.makeText(this, "Registro guardado con éxito", Toast.LENGTH_SHORT).show()
-                    // Finalizar actividad y volver a la pantalla anterior
-                    setResult(RESULT_OK)
-                    finish()
-                }
-                is OilChangeViewModel.SaveState.Error -> {
-                    binding.progressBar.visibility = View.GONE
-                    Toast.makeText(this, "Error: ${state.message}", Toast.LENGTH_LONG).show()
-                }
-                null -> {
-                    binding.progressBar.visibility = View.GONE
-                }
-            }
-        }
+    private fun showDatePicker() {
+        val datePickerDialog = DatePickerDialog(
+            this,
+            { _, year, month, dayOfMonth ->
+                calendar.set(Calendar.YEAR, year)
+                calendar.set(Calendar.MONTH, month)
+                calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth)
+                updateDateDisplay()
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        )
+        datePickerDialog.show()
+    }
+
+    private fun updateDateDisplay() {
+        binding.editTextServiceDate.setText(dateFormatter.format(calendar.time))
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -428,4 +448,10 @@ class RegisterOilChangeActivity : AppCompatActivity() {
         }
         return super.onOptionsItemSelected(item)
     }
+}
+
+// ViewModel para gestionar los datos
+@dagger.hilt.android.lifecycle.HiltViewModel
+class RegisterOilChangeViewModel @Inject constructor() : androidx.lifecycle.ViewModel() {
+    // Aquí se pueden agregar funciones para gestionar los datos si es necesario
 }

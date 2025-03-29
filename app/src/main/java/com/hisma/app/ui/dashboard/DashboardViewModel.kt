@@ -1,111 +1,107 @@
+// DashboardViewModel.kt
 package com.hisma.app.ui.dashboard
 
-import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.hisma.app.domain.model.Lubricenter
+import com.hisma.app.domain.model.User
+import com.hisma.app.domain.model.UserRole
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
 @HiltViewModel
-class DashboardViewModel @Inject constructor() : ViewModel() {
-
-    private val db = FirebaseFirestore.getInstance()
-    private val auth = FirebaseAuth.getInstance()
+class DashboardViewModel @Inject constructor(
+    private val firebaseAuth: FirebaseAuth,
+    private val firestore: FirebaseFirestore
+) : ViewModel() {
 
     private val _lubricenterData = MutableLiveData<Lubricenter?>()
     val lubricenterData: LiveData<Lubricenter?> = _lubricenterData
 
-    fun loadLubricenterInfo() {
-        val userId = auth.currentUser?.uid
-        if (userId == null) {
-            Log.e("DashboardViewModel", "Usuario no autenticado")
+    private val _userData = MutableLiveData<User?>()
+    val userData: LiveData<User?> = _userData
+
+    private val _isLoading = MutableLiveData<Boolean>()
+    val isLoading: LiveData<Boolean> = _isLoading
+
+    fun loadUserData() {
+        _isLoading.value = true
+
+        val currentUser = firebaseAuth.currentUser
+        if (currentUser == null) {
+            _isLoading.value = false
             return
         }
 
-        Log.d("DashboardViewModel", "Cargando info para userId: $userId")
-
-        // Primero intentamos buscar por ownerId
-        loadLubricenterByOwnerId(userId)
-    }
-
-    private fun loadLubricenterByOwnerId(userId: String) {
-        db.collection("lubricenters")
-            .whereEqualTo("ownerId", userId)
-            .limit(1)
+        firestore.collection("users").document(currentUser.uid)
             .get()
-            .addOnSuccessListener { documents ->
-                if (!documents.isEmpty) {
-                    handleLubricenterDocuments(documents.documents[0])
-                } else {
-                    // Si no se encuentra como propietario, buscamos por empleado
-                    loadLubricenterForEmployee(userId)
-                }
-            }
-            .addOnFailureListener { exception ->
-                Log.e("DashboardViewModel", "Error cargando lubricentro por ownerId", exception)
-                // Intentamos buscar como empleado en caso de error
-                loadLubricenterForEmployee(userId)
-            }
-    }
+            .addOnSuccessListener { document ->
+                if (document != null && document.exists()) {
+                    // Datos del usuario
+                    val id = document.id
+                    val name = document.getString("name") ?: ""
+                    val lastName = document.getString("lastName") ?: ""
+                    val email = document.getString("email") ?: ""
+                    val roleStr = document.getString("role") ?: "EMPLOYEE"
+                    val lubricenterId = document.getString("lubricenterId") ?: ""
 
-    private fun loadLubricenterForEmployee(userId: String) {
-        // Primero obtenemos el documento del usuario para obtener el lubricenterId
-        db.collection("users")
-            .document(userId)
-            .get()
-            .addOnSuccessListener { userDocument ->
-                if (userDocument.exists()) {
-                    val lubricenterId = userDocument.getString("lubricenterId")
-                    if (!lubricenterId.isNullOrEmpty()) {
-                        // Ahora buscamos el lubricentro con ese ID
-                        db.collection("lubricenters")
-                            .document(lubricenterId)
-                            .get()
-                            .addOnSuccessListener { lubricenterDocument ->
-                                if (lubricenterDocument.exists()) {
-                                    handleLubricenterDocuments(lubricenterDocument)
-                                } else {
-                                    Log.w("DashboardViewModel", "No se encontró el lubricentro con ID: $lubricenterId")
-                                    _lubricenterData.value = null
-                                }
-                            }
-                            .addOnFailureListener { exception ->
-                                Log.e("DashboardViewModel", "Error cargando lubricentro por ID", exception)
-                                _lubricenterData.value = null
-                            }
+                    val user = User(
+                        id = id,
+                        name = name,
+                        lastName = lastName,
+                        email = email,
+                        role = try { UserRole.valueOf(roleStr) } catch (e: Exception) { UserRole.EMPLOYEE },
+                        lubricenterId = lubricenterId
+                    )
+
+                    _userData.value = user
+
+                    // Cargar datos del lubricentro
+                    if (lubricenterId.isNotEmpty()) {
+                        loadLubricenterData(lubricenterId)
                     } else {
-                        Log.w("DashboardViewModel", "Usuario sin lubricenterId asignado")
-                        _lubricenterData.value = null
+                        _isLoading.value = false
                     }
                 } else {
-                    Log.w("DashboardViewModel", "No se encontró documento de usuario para $userId")
-                    _lubricenterData.value = null
+                    _isLoading.value = false
                 }
             }
-            .addOnFailureListener { exception ->
-                Log.e("DashboardViewModel", "Error obteniendo datos de usuario", exception)
-                _lubricenterData.value = null
+            .addOnFailureListener {
+                _isLoading.value = false
             }
     }
 
-    private fun handleLubricenterDocuments(document: com.google.firebase.firestore.DocumentSnapshot) {
-        try {
-            val lubricenter = document.toObject(Lubricenter::class.java)
-            if (lubricenter != null) {
-                val updatedLubricenter = lubricenter.copy(id = document.id)
-                _lubricenterData.value = updatedLubricenter
-                Log.d("DashboardViewModel", "Lubricentro cargado: ${updatedLubricenter.fantasyName}")
-            } else {
-                Log.e("DashboardViewModel", "No se pudo convertir documento a Lubricenter")
-                _lubricenterData.value = null
+    private fun loadLubricenterData(lubricenterId: String) {
+        firestore.collection("lubricenters").document(lubricenterId)
+            .get()
+            .addOnSuccessListener { document ->
+                if (document != null && document.exists()) {
+                    // Datos del lubricentro
+                    val id = document.id
+                    val name = document.getString("name") ?: "Lubricentro"
+                    val address = document.getString("address") ?: ""
+                    val phone = document.getString("phone") ?: ""
+                    val email = document.getString("email") ?: ""
+                    val responsible = document.getString("responsible") ?: ""
+
+                    val lubricenter = Lubricenter(
+                        id = id,
+                        fantasyName = name,
+                        address = address,
+                        phone = phone,
+                        email = email,
+                        responsible = responsible
+                    )
+
+                    _lubricenterData.value = lubricenter
+                }
+                _isLoading.value = false
             }
-        } catch (e: Exception) {
-            Log.e("DashboardViewModel", "Error procesando documento de lubricentro", e)
-            _lubricenterData.value = null
-        }
+            .addOnFailureListener {
+                _isLoading.value = false
+            }
     }
 }
