@@ -81,7 +81,7 @@ class DashboardViewModel @Inject constructor(
                 if (document != null && document.exists()) {
                     // Datos del lubricentro
                     val id = document.id
-                    val name = document.getString("name") ?: "Lubricentro"
+                    val name = document.getString("fantasyName") ?: "Lubricentro"
                     val address = document.getString("address") ?: ""
                     val phone = document.getString("phone") ?: ""
                     val email = document.getString("email") ?: ""
