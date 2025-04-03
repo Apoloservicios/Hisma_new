@@ -61,6 +61,29 @@
             android:name=".ui.oilchange.RegisterOilChangeActivity"
             android:exported="false" />
 
+        <!-- Añadir esta actividad dentro del tag <application> en AndroidManifest.xml -->
+        <activity
+            android:name=".debug.TestFirestoreActivity"
+            android:exported="true">
+            <!-- Si quieres crear un acceso directo para pruebas, descomenta esto: -->
+            <!--
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            -->
+        </activity>
+
+        <activity
+            android:name=".debug.SimpleFirestoreDebugActivity"
+            android:exported="true">
+            <!-- Descomenta esto para tener acceso directo -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
         <!-- Provider para compartir PDFs -->
         <provider
             android:name="androidx.core.content.FileProvider"
